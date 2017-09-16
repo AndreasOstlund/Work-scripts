@@ -3,6 +3,27 @@
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
 }
 
+Function _Expand-VariablesInString {
+    [cmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True
+                  ,ValueFromPipeline=$True)]
+        [string]$Inputstring,
+
+        [Parameter(Mandatory=$True)]
+        [hashtable]$VariableMappings
+    )
+
+
+    foreach($key in $Variablemappings.Keys) {
+
+        $InputString = $Inputstring.Replace("%"+$key+"%",$VariableMappings[$key])
+    }
+
+
+    return $Inputstring
+}
+
 
 Function Install-WorkClient() {
     [cmdletBinding()]
@@ -32,15 +53,26 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
-
+    ############################################
+    # Create Directories
     New-DirectoryIfNotExists -dirname $privdir
-    $subdirs = @("_down","install_logs","scheduled_scripts","tools")
+    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant")
     $subdirs | ForEach-Object {
         New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
     }
 
-    update-help
 
+
+
+
+
+
+
+
+
+
+    #################################################
+    # Windows features
     $Features = @(
         @{
             FeatureName="Microsoft-Hyper-V"
@@ -51,7 +83,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             All = $False
         };
     )
-
 
     $Features | ForEach-Object {
         $feature = $_
@@ -74,11 +105,20 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     #>
 
 
+    ######################################
+    # Chrome
     $package = Get-Package -ProviderName msi -Name "Google Chrome" -ErrorAction Continue
     if(-not $package) {
         & msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
     }
 
+
+
+
+
+
+
+    ########################################################
     # RSAT for windows 10. KB2693643
     $rsat = get-hotfix -Id KB2693643
     if(-not $rsat) {
@@ -88,11 +128,28 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse 
 
+
+
+
+
+
+
+    ###################################
+    # Create login script
+    #
+$LoginSCript=@'
+Get-process Driftinformation | stop-process
+Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
+'@
+
+    $LoginSCriptPath = "$privdir\scheduled_scripts\logon_script.ps1"
+    $LoginSCript | Set-Content -Path $LoginSCriptPath -Encoding UTF8 
+
     $SChedTask = Get-ScheduledTask -TaskName "Logon script" -TaskPath "\"
 
     if(-not $SChedTask) {
         $SchedTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $SchedAction = New-ScheduledTaskAction -Execute powershell.exe -Argument "-NoLogo -NonInteractive -WindowStyle Hidden -ExecutionPolicy UnRestricted -File $privdir\scheduled_scripts\logon_script.ps1" -WorkingDirectory $privdir\scheduled_scripts\
+        $SchedAction = New-ScheduledTaskAction -Execute powershell.exe -Argument "-NoLogo -NonInteractive -WindowStyle Hidden -ExecutionPolicy UnRestricted -File $LogonSCriptPath -WorkingDirectory $privdir\scheduled_scripts\
         $SChedSettings = New-ScheduledTaskSettingsSet
         $SChedTask = New-ScheduledTask -Action $SchedAction -Trigger $SchedTrigger -Description "Custom logon script" -Settings $SChedSettings
         Register-ScheduledTask -TaskName "Logon script" -InputObject $SChedTask -TaskPath "\"
@@ -102,10 +159,14 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         Restart-Computer -Force
     }
 
-    # enable developer mode for lInux subsystem
-    New-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force
 
 
+    
+
+
+    #################################################
+    # Sysinternals
+    #
     Invoke-WebRequest -Uri "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutFile $privdir\_down\sysinternals.zip
     Unblock-File -Path $privdir\_down\sysinternals.zip
     remove-Item -Path $(join-path -path $env:ProgramFiles -ChildPath "sysinternals")
@@ -114,6 +175,14 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
+
+
+    #########################################
+    # linux Subsystem for windows
+    #
+    # enable developer mode for lInux subsystem
+    New-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force
+
     Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /install /y`"" -WindowStyle Normal -Wait
     # initially set default user as root
     Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /setdefaultuser root /y`"" -WindowStyle Normal -Wait
@@ -121,8 +190,8 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
     # WSL path 
-    # ii C:\Users\aos019\AppData\Local\lxss\rootfs\etc\default
-    # C:\Users\aos019\AppData\Local\lxss\rootfs\etc\default
+    # ii $env:LOCALAPPDATA\lxss\rootfs\etc\default
+    # $env:LOCALAPPDATA\lxss\rootfs\etc\default
     # to set locale
     # sudo update-locale LANG=en_US.UTF8
     # cat /etc/default/locale
@@ -137,18 +206,30 @@ $WSLInitPrivScript=@'
 # python-dev for pip
 # libffi-dev for ansible
 # libssl-dev for ansible
-apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev
+apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev pwgen python-virtualenv
 pip install ansible
 #boto is needed by ec2 module
 pip install boto
 # github3.py needed by github_release module
 pip install github2 github3.py
 updatedb
+useradd --user-group --create-home %SHELLUSERNAME%
+USERPWD=$(pwgen -1 -c -n -s 16 1)
+echo $USERPWD > %PWDOUTPUTDIR%
+echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
 '@
-
-    $WSLInitPrivScript.Replace("`r`n","`n") | Set-Content -Path $privdir\init_bash.sh -Encoding UTF8
+    # "Data: %MYDATA%" | _Expand-VariablesInString -VariableMappings @{MYDATA="replaced string"}
+    $WSLInitPrivScript.Replace("`r`n","`n") | _Expand-VariablesInString -VariableMappings @{ SHELLUSERNAME=$env:USERNAME; PWDOUTPUTDIR=$("/mnt/$PrivDir/bash_password.txt".Replace(':','').Replace('\','/')) } | Set-Content -Path $privdir\init_bash.sh -Encoding UTF8
 
     Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh /mnt/$($PrivDir.Replace(':','').Replace('\','/'))/init_bash.sh`"" -WindowStyle Normal -Wait
+
+
+
+
+
+
+
+
 
 
 
@@ -169,17 +250,30 @@ updatedb
     #$releasedata.assets | Sort-Object created_at -Descending | select Name, created_at
 
     
-    ##############################
 
 
+
+
+    #############################################
     # nuget
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -force
 
+
+    #################################################
     # posh-git
     # TODO: install portable git and add to path
     PowershellGet\install-module -Name Posh-git -scope CurrentUser -Force
     import-module posh-git
     Add-PoshGitToProfile -AllHosts
+
+
+
+
+
+
+
+
+
 
 
     ########################################################
@@ -205,13 +299,40 @@ updatedb
     Stop-Process -processname explorer
 
 
-    # might need a reboot
+
+
+    #################################################
+    # TRackpad turn off right click
+    # might need a reboot or re-login
     Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad' -Name RightClickZoneEnabled -Value 0
 
 
+
+
+
+
+
+
+    ############################################################
     # beyond compare
     Invoke-WebRequest -Uri https://www.scootersoftware.com/BCompare-3.3.13.18981.exe -UseBasicParsing -OutFile $privdir\_down\BCompare-3.3.13.18981.exe
     Unblock-File -Path $privdir\_down\BCompare-3.3.13.18981.exe
+
+    # https://www.scootersoftware.com/vbulletin/showthread.php?15609-Unattended-install
+    $BCompSEttingsDir = $PSScriptRoot
+    if(-not $BCompSEttingsDir) {
+        $BCompSEttingsDir = (Get-Location).Path
+    }
+    $BCompSettings = Join-Path -Path $BCompSEttingsDir -ChildPath "bcompare_setup.inf"
+    & $privdir\_down\BCompare-3.3.13.18981.exe /silent /loadinf="$BCompSettings"
+
+
+
+
+
+
+
+
 
 
 
@@ -226,6 +347,18 @@ updatedb
     if(-not $package) {
         & msiexec /i $privdir\_down\vagrant_2.0.0_x86_64.msi INSTALLDIR="$privdir\tools\Vagrant" /norestart /passive /log $privdir\install_logs\vagrant.log
     }
+    $VagrantPAth = "C:\andreas\local_code\vagrant\.vagrant.d".Replace('\','/')
+    [System.Environment]::SetEnvironmentVariable("VAGRANT_HOME",$VagrantPAth,"Machine")
+    [System.Environment]::SetEnvironmentVariable("VAGRANT_DEFAULT_PROVIDER","hyperv","Machine")
+
+
+
+
+
+
+
+
+
 
 
     ##################################
@@ -242,6 +375,17 @@ updatedb
     # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
 
     mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
+
+
+
+
+
+    ###############################################
+    # MIsc stuff
+    
+    # update powershell help
+    update-help
+
 
     <#
     Get-WindowsOptionalFeature -Online | select FeatureName | Sort-Object FeatureName | ogv
@@ -267,6 +411,8 @@ updatedb
             * set download path
             * set language to english
             * pin to taskbar
+            * Fix registry to enable incognito mode
+
 
     #>
 }
