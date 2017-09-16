@@ -3,6 +3,23 @@
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
 }
 
+Function ConvertTo-LowercasePathQualifier($path) {
+
+    $Qualifier = Split-Path -Path $path -Qualifier
+    $PathNoQualifier = Split-Path -Path $path -NoQualifier
+
+    return ($Qualifier.ToLower())+$PathNoQualifier
+
+}
+
+Function ConvertTo-WSLPath($path) {
+
+    $wslpath = ConvertTo-LowercasePathQualifier -path $path
+
+    return ("/mnt/"+$wslpath).Replace(':','').Replace('\','/')
+}
+
+
 Function _Expand-VariablesInString {
     [cmdletBinding()]
     Param(
@@ -53,15 +70,21 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
+
+
+
+
     ############################################
     # Create Directories
     New-DirectoryIfNotExists -dirname $privdir
-    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant")
+    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant","temp","greenshot")
     $subdirs | ForEach-Object {
         New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
     }
 
-
+    $GreenshotConfigDir = $(Join-Path -Path $env:APPDATA -ChildPath "Greenshot")
+    if(-not $(Test-Path -Path $GreenshotConfigDir)) { mkdir $GreenshotConfigDir }
+    copy -Path .\customizations\Greenshot.ini -Destination $GreenshotConfigDir
 
 
 
@@ -96,13 +119,9 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     }
 
 
-    <#
-    $feature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V
-    if(-not $($feature.State -eq "Enabled") ) {
-        Enable-WindowsOptionalFeature -Online  -FeatureName Microsoft-Hyper-V -All
-        $RebootIt = $true
-    }
-    #>
+
+    
+
 
 
     ######################################
@@ -134,6 +153,21 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+
     ###################################
     # Create login script
     #
@@ -145,11 +179,12 @@ Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
     $LoginSCriptPath = "$privdir\scheduled_scripts\logon_script.ps1"
     $LoginSCript | Set-Content -Path $LoginSCriptPath -Encoding UTF8 
 
-    $SChedTask = Get-ScheduledTask -TaskName "Logon script" -TaskPath "\"
+    $SChedTask = Get-ScheduledTask -TaskName "Logon script" -TaskPath '\'
+
 
     if(-not $SChedTask) {
-        $SchedTrigger = New-ScheduledTaskTrigger -AtLogOn
-        $SchedAction = New-ScheduledTaskAction -Execute powershell.exe -Argument "-NoLogo -NonInteractive -WindowStyle Hidden -ExecutionPolicy UnRestricted -File $LogonSCriptPath -WorkingDirectory $privdir\scheduled_scripts\
+        #$SchedTrigger = New-ScheduledTaskTrigger -AtLogOn
+        $SchedAction = New-ScheduledTaskAction -Execute powershell.exe -Argument "-NoLogo -NonInteractive -WindowStyle Hidden -ExecutionPolicy UnRestricted -File $LogonSCriptPath -WorkingDirectory $privdir\scheduled_scripts\"
         $SChedSettings = New-ScheduledTaskSettingsSet
         $SChedTask = New-ScheduledTask -Action $SchedAction -Trigger $SchedTrigger -Description "Custom logon script" -Settings $SChedSettings
         Register-ScheduledTask -TaskName "Logon script" -InputObject $SChedTask -TaskPath "\"
@@ -183,9 +218,9 @@ Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
     # enable developer mode for lInux subsystem
     New-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force
 
-    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /install /y`"" -WindowStyle Normal -Wait
+    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /install /y`"" -NoNewWindow -Wait
     # initially set default user as root
-    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /setdefaultuser root /y`"" -WindowStyle Normal -Wait
+    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /setdefaultuser root /y`"" -NoNewWindow -Wait
 
 
 
@@ -202,26 +237,59 @@ Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
 
 $WSLInitPrivScript=@'
 #!/bin/sh
+
 /usr/sbin/update-locale LANG=en_US.UTF8
+
+########################################
+# package install
 # python-dev for pip
 # libffi-dev for ansible
 # libssl-dev for ansible
-apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev pwgen python-virtualenv
-pip install ansible
+apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev pwgen python-virtualenv jq
+#pip install ansible
 #boto is needed by ec2 module
-pip install boto
+#pip install boto
 # github3.py needed by github_release module
-pip install github2 github3.py
+#pip install github2 github3.py
+
+#################################
 updatedb
-useradd --user-group --create-home %SHELLUSERNAME%
+
+
+###################################
+# add local user
+useradd --user-group --create-home --groups sudo %SHELLUSERNAME%
 USERPWD=$(pwgen -1 -c -n -s 16 1)
 echo $USERPWD > %PWDOUTPUTDIR%
 echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
+
+
+
+###################################
+# set localhost
+echo "127.0.0.1 %COMPUTERNAME%" >> /etc/hosts
+echo "127.0.0.1 %HOSTFQDN%" >> /etc/hosts
+
+echo "done"
+read foo
 '@
     # "Data: %MYDATA%" | _Expand-VariablesInString -VariableMappings @{MYDATA="replaced string"}
-    $WSLInitPrivScript.Replace("`r`n","`n") | _Expand-VariablesInString -VariableMappings @{ SHELLUSERNAME=$env:USERNAME; PWDOUTPUTDIR=$("/mnt/$PrivDir/bash_password.txt".Replace(':','').Replace('\','/')) } | Set-Content -Path $privdir\init_bash.sh -Encoding UTF8
+    $WSLINitPrivSCriptPath = $PSScriptRoot
+    if(-not $WSLINitPrivSCriptPath) {
+        $WSLINitPrivSCriptPath = (get-location).path
+    }
+    $WSLINitPrivSCriptPath = Join-Path -Path $(ConvertTo-LowercasePathQualifier -path $WSLINitPrivSCriptPath) -ChildPath "init_bash.sh"
+    $WSLInitPrivScript.Replace("`r`n","`n") | `
+        _Expand-VariablesInString -VariableMappings @{ 
+            SHELLUSERNAME=$env:USERNAME; 
+            PWDOUTPUTDIR=ConvertTo-WSLPath -path $(join-path -path $PrivDir -ChildPath "bash_password.txt");
+            COMPUTERNAME=$env:COMPUTERNAME.ToLower();
+            HOSTFQDN="$env:COMPUTERNAME.$env:USERDNSDOMAIN".ToLower()
+         } | Set-Content -Path $WSLINitPrivSCriptPath -Encoding UTF8
 
-    Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh /mnt/$($PrivDir.Replace(':','').Replace('\','/'))/init_bash.sh`"" -WindowStyle Normal -Wait
+    Write-Warning $WSLINitPrivSCriptPath
+
+    Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh $(ConvertTo-WSLPath -path $(join-path -Path $WSLINitPrivSCriptPath -childPath "init_bash.sh"))`"" -NoNewWinodw -Wait
 
 
 
@@ -286,15 +354,22 @@ echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
         @{ RegKey = "Hidden"; Value = 1 }
         ,@{ RegKey = "HideFileExt"; Value = 0 }
         ,@{ RegKey = "ShowSuperHidden"; Value = 1 }
-        ,@{ RegKey = "hidedriveswithnomedia"; Value = 0 }
-        ,@{ RegKey = "hidemergeconflicts"; Value = 0 }
-        ,@{ RegKey = "autocheckselect"; Value = 0 }
+        ,@{ RegKey = "HideDrivesWithNoMedia"; Value = 0 }
+        ,@{ RegKey = "HideMergeConflicts"; Value = 0 }
+        ,@{ RegKey = "AutoCheckSelect"; Value = 0 }
+        ,@{ RegKey = "TaskbarAnimations"; Value = 0 }
+        ,@{ RegKey = "TaskbarSmallIcons"; Value = 1 }
     )
      
     $ExplorerRegData | ForEach-Object {
         Write-Warning "Setting $($_.RegKey) to $($_.Value)"
         Set-ItemProperty -Path $ExplorerRegPath -Name $_.REgKey -Value $_.Value
     }
+
+    # set desktop
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Colors' -Name "Background" -Value "0 0 0"
+    Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name "Wallpaper" -Value ""
+
 
     Stop-Process -processname explorer
 
@@ -323,7 +398,7 @@ echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
     if(-not $BCompSEttingsDir) {
         $BCompSEttingsDir = (Get-Location).Path
     }
-    $BCompSettings = Join-Path -Path $BCompSEttingsDir -ChildPath "bcompare_setup.inf"
+    $BCompSettings = Join-Path -Path $BCompSEttingsDir -ChildPath "customizations\bcompare_setup.inf"
     & $privdir\_down\BCompare-3.3.13.18981.exe /silent /loadinf="$BCompSettings"
 
 
@@ -375,6 +450,81 @@ echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
     # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
 
     mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
+
+
+
+
+
+
+
+
+    ####################################################
+    # OpenVPN
+    #
+    #Invoke-WebRequest -Uri 'https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.17-I601-x86_64.exe' -UseBasicParsing -OutFile $privdir\_down\openvpn-install-2.3.17-I601-x86_64.exe
+    Invoke-WebRequest -Uri 'https://swupdate.openvpn.org/community/releases/openvpn-install-2.4.3-I602.exe' -UseBasicParsing -OutFile $privdir\_down\openvpn-install-2.4.3-I602.exe
+    Unblock-File -Path $privdir\_down\openvpn-install-2.4.3-I602.exe
+
+    Import-Certificate -FilePath .\customizations\openssl_tap.pem -CertStoreLocation "Cert:\LocalMachine\TrustedPublisher"
+
+
+    #https://justcheckingonall.wordpress.com/2013/03/11/command-line-installation-of-openvpn/
+    #https://b3it.blogspot.se/2014/06/openvpn-silent-intall-and-kaseya.html
+
+    Start-Process -FilePath "$privdir\_down\openvpn-install-2.4.3-I602.exe" `
+        -ArgumentList "/S /SELECT_SHORTCUTS=0 /SELECT_OPENVPN=1 /SELECT_SERVICE=1 /SELECT_TAP=1 /SELECT_OPENVPNGUI=1 /SELECT_ASSOCIATIONS=0 /SELECT_OPENSSL_UTILITIES=0 /SELECT_EASYRSA=0 /SELECT_PATH=1 /SELECT_OPENSSLDLLS=1 /SELECT_LZODLLS=1 /SELECT_PKCS11DLLS=1" `
+        -NoNewWindow -Wait
+
+    get-service | ? { $_.Name -like 'OpenVPN*'} | stop-service -PassThru | Set-Service -StartupType Manual
+
+
+
+
+
+
+
+
+    ######################################################
+    # Path Copy Copy
+    # https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe
+    #
+    Invoke-WebRequest -Uri 'https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe' -UseBasicParsing -OutFile $privdir\_down\PathCopyCopy14.0.exe
+    Unblock-File -Path $privdir\_down\PathCopyCopy14.0.exe
+
+
+
+
+
+
+    ###########################################################
+    # Greenshot
+    # https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+
+    Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+    Unblock-File -Path "$privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe"
+
+    
+
+
+
+    ############################################################
+    # Wireshark
+    # https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe
+
+    Invoke-WebRequest -Uri 'https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.1.exe"
+    Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.1.exe"
+
+
+
+    #############################################################
+    # SoapUI
+    # http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe
+    Invoke-WebRequest -Uri 'http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe' -UseBasicParsing -OutFile "$privdir\_down\SoapUI-x64-5.2.1.exe"
+    Unblock-File -Path "$privdir\_down\SoapUI-x64-5.2.1.exe"
+
+    # https://community.smartbear.com/t5/SoapUI-Open-Source/Silent-Install-Option/td-p/10921
+    Start-Process -FilePath "$privdir\_down\SoapUI-x64-5.2.1.exe" -ArgumentList "-q" -NoNewWindow -Wait
+
 
 
 
