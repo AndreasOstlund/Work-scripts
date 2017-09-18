@@ -13,6 +13,9 @@ Function New-ProgramShortcut {
         ,[Parameter(Mandatory=$True)]
         [string]$IconFileName
 
+        ,[Parameter(Mandatory=$False)]
+        [string]$WorkingDirectory
+
         ,[Parameter()]
         [switch]$AllUsers
     )
@@ -50,6 +53,11 @@ oMyShortCut.Save
 
         $ShortCut = $ShellObj.CreateShortcut( $(Join-Path -Path $DekstopPath -ChildPath $IconFileName) )
         $ShortCut.TargetPath = $TargetPath
+
+        if($WorkingDirectory) {
+            $ShortCut.WorkingDirectory = $WorkingDirectoryd
+        }
+
         $ShortCut.Save()
 
         [System.Runtime.Interopservices.Marshal]::ReleaseComObject($ShellObj) | Out-Null
@@ -232,7 +240,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 $LoginSCript=@'
 Get-process Driftinformation | stop-process
 Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
+Remove-Item -Path HKLM:\SOFTWARE\Policies\Google -Force -Recurse
+Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name "Driftinfo"
 '@
+
+
+Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name "Driftinfo"
+  
 
     $LoginSCriptPath = "$privdir\scheduled_scripts\logon_script.ps1"
     $LoginSCript | Set-Content -Path $LoginSCriptPath -Encoding UTF8 
@@ -332,6 +346,23 @@ echo "127.0.0.1 %HOSTFQDN%" >> /etc/hosts
 echo "done"
 read foo
 '@
+
+$WSLLocalUserInit=@'
+ln -s %LOCALPRIVDIR% localdir
+mkdir -p ~/python/envs/ansible
+cd ~/python/envs
+virtualenv ansible
+source ansible/bin/activate
+cd ansible
+pip install ansible boto github2 github3.py pywinrm
+#
+git clone https://github.com/Winterlabs/shellsettings
+cd shellsettings
+./merge_settings.sh
+'@
+
+
+
     # "Data: %MYDATA%" | _Expand-VariablesInString -VariableMappings @{MYDATA="replaced string"}
     $WSLINitPrivSCriptPath = $PSScriptRoot
     if(-not $WSLINitPrivSCriptPath) {
@@ -595,6 +626,48 @@ read foo
     # $CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe /?
     Start-Process -FilePath "$CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe" `
         -ArgumentList "/Instal /Quiet /NoRestart" -Wait -NoNewWindow
+
+
+
+
+
+    #########################################################
+    # ConEmu
+    # https://conemu.github.io/en/AutoInstall.html
+    # powershell -NoProfile -ExecutionPolicy Unrestricted -Command "iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install.ps1'))"
+
+    $ConEmuInstallPath = Join-Path -Path "$privdir\tools" -ChildPath "ConEmu"
+    # Directory must be writable to be able to edit settings
+    $ConEmuInstallParams = @{
+        ver="stable";
+        dst=$ConEmuInstallPath;
+        lnk=$False;
+        xml=‘https://conemu.github.io/ConEmu.xml’;
+        run=$False
+    }
+
+    $ConEmuInstallCmd = ""
+
+    $ConEmuInstallParams.keys | ForEach-Object {
+        $param = $_
+        $value = $ConEmuInstallParams.Item($param)
+        Write-Warning "$param - $value"
+        if($value -is [bool]) {
+            $ConEmuInstallCMd += "set $param `$$($value.ToString()); "
+        } else {
+            $ConEmuInstallCMd += "set $param `'$value`'; "
+        }
+    }
+
+    Write-Warning "Starting ConEmu install with params: `"$ConEmuInstallCmd`""
+
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
+    Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force
+
+
+
+
 
 
 
