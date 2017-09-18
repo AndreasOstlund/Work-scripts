@@ -3,6 +3,62 @@
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
 }
 
+
+Function New-ProgramShortcut {
+    [cmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$TargetPath
+
+        ,[Parameter(Mandatory=$True)]
+        [string]$IconFileName
+
+        ,[Parameter()]
+        [switch]$AllUsers
+    )
+
+<#
+set WshShell = CreateObject("Wscript.shell")
+strDesktop = WshShell.SpecialFolders("AllUsersDesktop")
+set oMyShortcut = WshShell.CreateShortcut(strDesktop + "\IIS Manager.lnk")
+'set oMyShortcut = WshShell.CreateShortcut("C:\Users\Public\Desktop\odbcad32.lnk")
+'oMyShortcut.WindowStyle = 3  &&Maximized 7=Minimized  4=Normal 
+'oMyShortcut.IconLocation = "C:\myicon.ico"
+OMyShortcut.TargetPath = "%windir%\system32\inetsrv\InetMgr.exe"
+'oMyShortCut.Hotkey = "ALT+CTRL+F"
+oMyShortCut.Save
+#>
+        # check if icon filename ends with lnk
+        if(-Not $($IconFileName -match ".lnk$") ) {
+            Write-Warning "Appending .lnk to icon filename $IconFileName"
+            $IconFileName += ".lnk"
+        }
+
+
+
+        $ShellObj = New-Object -ComObject WScript.Shell
+
+        if($AllUsers) {
+            $DekstopPath = $ShellObj.SpecialFolders("AllUsersDesktop")
+        
+        } else {
+            $DekstopPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
+        
+        }
+
+        Write-Verbose "Creating desktop icon $IconFileName in $DesktopPath"
+
+        $ShortCut = $ShellObj.CreateShortcut( $(Join-Path -Path $DekstopPath -ChildPath $IconFileName) )
+        $ShortCut.TargetPath = $TargetPath
+        $ShortCut.Save()
+
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($ShellObj) | Out-Null
+        Remove-Variable ShellObj
+
+}
+
+
+
 Function ConvertTo-LowercasePathQualifier($path) {
 
     $Qualifier = Split-Path -Path $path -Qualifier
@@ -47,6 +103,8 @@ Function Install-WorkClient() {
     Param(
     [Parameter(Mandatory=$True)]
     [string]$PrivDir
+    ,[Parameter(Mandatory=$True)]
+    [string]$CorpRepo
     )
 
     $RebootIt = $False
@@ -202,13 +260,14 @@ Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
     #################################################
     # Sysinternals
     #
+    $SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
     Invoke-WebRequest -Uri "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutFile $privdir\_down\sysinternals.zip
     Unblock-File -Path $privdir\_down\sysinternals.zip
-    remove-Item -Path $(join-path -path $env:ProgramFiles -ChildPath "sysinternals")
-    Expand-Archive -Path $privdir\_down\sysinternals.zip -DestinationPath $(join-path -path $env:ProgramFiles -ChildPath "sysinternals") -Force
-    & "$(join-path -path $env:ProgramFiles -ChildPath "sysinternals")\procexp.exe" -accepteula
+    remove-Item -Path $SysinteralsAppDir -Force
+    Expand-Archive -Path $privdir\_down\sysinternals.zip -DestinationPath $SysinternalsAppDir -Force
+    & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
-
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
 
 
 
@@ -439,19 +498,21 @@ read foo
     ##################################
     # Notepad++
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip
-
+    $NppAppDir = Join-Path -Path $env:ProgramFiles -ChildPath "Notepad++"
     Invoke-WebRequest -Uri https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip -UseBasicParsing -OutFile $privdir\_down\npp.7.5.1.bin.x64.zip
     Unblock-file -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip
-    $DEstPath = $(Join-Path -Path $env:ProgramFiles -ChildPath "Notepad++")
+    $DEstPath = $NppAppDir
     Expand-Archive -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip -DestinationPath $DEstPath
     #& c:\windows\system32\regsvr32.exe /s $DEstPath\nppshell_05.dll
+
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "N++.lnk"
 
     # shell integration
     # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
 
     mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
 
-
+    
 
 
 
@@ -529,12 +590,26 @@ read foo
 
 
 
+    #######################################################
+    # MS SQL Management Studio 2016
+    # $CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe /?
+    Start-Process -FilePath "$CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe" `
+        -ArgumentList "/Instal /Quiet /NoRestart" -Wait -NoNewWindow
+
+
+
 
     ###############################################
     # MIsc stuff
     
     # update powershell help
     update-help
+
+    # show "Run as user"
+    # https://superuser.com/questions/1045158/how-do-you-run-as-a-different-user-from-the-start-menu-in-windows-10
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name ShowRunasDifferentuserinStart -Value 1 -type DWORD
+
+    Stop-Process -processname explorer
 
 
     <#
@@ -568,6 +643,7 @@ read foo
 }
 
 $dir = Read-Host -Prompt "Privdir"
+$crepo = Read-Host -Prompt "Corp repo"
 
-# Install-WorkClient -PrivDir $dir
+#Install-WorkClient -PrivDir $dir -CorpRepo $crepo
 
