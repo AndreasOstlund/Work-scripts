@@ -512,7 +512,7 @@ cd shellsettings
     if(-not $package) {
         & msiexec /i $privdir\_down\vagrant_2.0.0_x86_64.msi INSTALLDIR="$privdir\tools\Vagrant" /norestart /passive /log $privdir\install_logs\vagrant.log
     }
-    $VagrantPAth = "C:\andreas\local_code\vagrant\.vagrant.d".Replace('\','/')
+    $VagrantPAth = "$privdir\local_code\vagrant\.vagrant.d".Replace('\','/')
     [System.Environment]::SetEnvironmentVariable("VAGRANT_HOME",$VagrantPAth,"Machine")
     [System.Environment]::SetEnvironmentVariable("VAGRANT_DEFAULT_PROVIDER","hyperv","Machine")
 
@@ -591,6 +591,7 @@ cd shellsettings
     ###########################################################
     # Greenshot
     # https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+    $Package = $(Get-Package -name | ? { $_.Name -like 'Greenshot*'} )
 
     Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
     Unblock-File -Path "$privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe"
@@ -602,10 +603,13 @@ cd shellsettings
     ############################################################
     # Wireshark
     # https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe
+    $Package = $(Get-Package -name | ? { $_.Name -like 'Wireshark*'} )
+    if(-not $Package) {
+        Invoke-WebRequest -Uri 'https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.1.exe"
+        Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.1.exe"
 
-    Invoke-WebRequest -Uri 'https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.1.exe"
-    Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.1.exe"
-
+        # install
+    }
 
 
     #############################################################
@@ -621,12 +625,17 @@ cd shellsettings
 
 
 
+
     #######################################################
     # MS SQL Management Studio 2016
     # $CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe /?
-    Start-Process -FilePath "$CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe" `
-        -ArgumentList "/Instal /Quiet /NoRestart" -Wait -NoNewWindow
-
+    $Package = $(get-package -name "SQL Server 2016 Management Studio" -providername msi)
+    if(-not $package) {
+        Start-Process -FilePath "$CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe" `
+            -ArgumentList "/Instal /Quiet /NoRestart" -Wait -NoNewWindow
+    } else {
+        Write-Warning "Not installing SQL management studio, it appears installed already."
+    }
 
 
 
@@ -637,33 +646,39 @@ cd shellsettings
     # powershell -NoProfile -ExecutionPolicy Unrestricted -Command "iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install.ps1'))"
 
     $ConEmuInstallPath = Join-Path -Path "$privdir\tools" -ChildPath "ConEmu"
-    # Directory must be writable to be able to edit settings
-    $ConEmuInstallParams = @{
-        ver="stable";
-        dst=$ConEmuInstallPath;
-        lnk=$False;
-        xml=‘https://conemu.github.io/ConEmu.xml’;
-        run=$False
-    }
 
-    $ConEmuInstallCmd = ""
+    if(-not $(Test-Path -Path $ConEmuInstallPath) ) {
 
-    $ConEmuInstallParams.keys | ForEach-Object {
-        $param = $_
-        $value = $ConEmuInstallParams.Item($param)
-        Write-Warning "$param - $value"
-        if($value -is [bool]) {
-            $ConEmuInstallCMd += "set $param `$$($value.ToString()); "
-        } else {
-            $ConEmuInstallCMd += "set $param `'$value`'; "
+        # Directory must be writable to be able to edit settings
+        $ConEmuInstallParams = @{
+            ver="stable";
+            dst=$ConEmuInstallPath;
+            lnk=$False;
+            xml=‘https://conemu.github.io/ConEmu.xml’;
+            run=$False
         }
+
+        $ConEmuInstallCmd = ""
+
+        $ConEmuInstallParams.keys | ForEach-Object {
+            $param = $_
+            $value = $ConEmuInstallParams.Item($param)
+            Write-Warning "$param - $value"
+            if($value -is [bool]) {
+                $ConEmuInstallCMd += "set $param `$$($value.ToString()); "
+            } else {
+                $ConEmuInstallCMd += "set $param `'$value`'; "
+            }
+        }
+
+        Write-Warning "Starting ConEmu install with params: `"$ConEmuInstallCmd`""
+
+        Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
+        New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
+        Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force
+
+    
     }
-
-    Write-Warning "Starting ConEmu install with params: `"$ConEmuInstallCmd`""
-
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
-    New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
-    Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force
 
 
 
@@ -683,6 +698,10 @@ cd shellsettings
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name ShowRunasDifferentuserinStart -Value 1 -type DWORD
 
     Stop-Process -processname explorer
+
+
+
+
 
 
     <#
