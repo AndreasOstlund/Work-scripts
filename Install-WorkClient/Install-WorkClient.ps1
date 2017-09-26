@@ -464,10 +464,43 @@ cd shellsettings
     Stop-Process -processname explorer
 
 
+    <#
+    Edge options
+
+    HKEY_CURRENT_USER\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage\microsoft.microsoftedge_8wekyb3d8bbwe\MicrosoftEdge\Main
+"Theme"=dword:00000000
+"Default Download Directory"="C:\\Users\\aos019\\Downloads"
+"Use FormSuggest"="no"    
+"DisallowDefaultBrowserPrompt"=dword:00000000
+    #>
+
+
+
+    <#
+    IE options
+
+    HKEY_CURRENT_USER\SOFTWARE\Microsoft\Internet Explorer\Main
+    
+ "Use FormSuggest"="no"
+"FormSuggest Passwords"="no"
+"FormSuggest PW Ask"="no"
+    
+    HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\WindowsSearch
+"ConfiguredScopes"=dword:00000000
+"AutoCompleteGroups"=dword:00000005
+"EnabledScopes"=dword:00000000
+
+"Friendly http errors"="no"
+"Start Page"="http://intra.orebroll.se/"
+
+
+    #>
+
+
 
 
     #################################################
-    # TRackpad turn off right click
+    # Trackpad turn off right click
     # might need a reboot or re-login
     Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PrecisionTouchPad' -Name RightClickZoneEnabled -Value 0
 
@@ -716,6 +749,7 @@ cd shellsettings
 
     <#
     TODO:
+        - Citrix receiver
         - tackpad
             * turn off right click on trackpad
 
