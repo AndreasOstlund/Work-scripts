@@ -1,4 +1,18 @@
-﻿Function New-DirectoryIfNotExists($dirname) {
+﻿Function Save-FileOnURL() {
+    [cmdletBinding()]
+    Param(
+        [string]$URL
+        ,[string]$OutputPath
+        ,[string]$Filename
+    )
+
+    $FullOutputPath = Join-Path -Path $OutputPath -ChildPath $Filename
+
+    Invoke-WebRequest -Uri $URL -OutFile $OutputPath -UseBasicParsing
+    Unblock-File -Path $FullOutputPath
+}
+
+Function New-DirectoryIfNotExists($dirname) {
 
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
 }
@@ -211,7 +225,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         $RebootIt = $true
     }
 
-    Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse 
+
 
 
 
@@ -459,6 +473,12 @@ cd shellsettings
     # set desktop
     Set-ItemProperty -Path 'HKCU:\Control Panel\Colors' -Name "Background" -Value "0 0 0"
     Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name "Wallpaper" -Value ""
+
+
+    #Chrome policies
+    Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse 
+    Set-ItemProperty -path HKLM:\SOFTWARE\Policies\Google\Chrome -name 'IncognitoModeAvailability' -Value 0
+
 
 
     Stop-Process -processname explorer
@@ -714,9 +734,33 @@ cd shellsettings
     }
 
 
+    ###################################################
+    #
+    # java
+    #
+    Start-Process -FilePath"$crepo\Program\java\Windows\jre-8u144-windows-x64.exe" -ArgumentList "AUTO_UPDATE=Disable INSTALL_SILENT=Enable" -NoNewWindow -Wait
 
 
+    ###################################################
+    #
+    # 
+    #
 
+    Save-FileOnURL -URL "https://downloads-guests.open.collab.net/files/documents/61/13440/GitEye-2.0.0-windows.x86_64.zip" -Filename "GitEye-2.0.0-windows.x86_64.zip" -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo")
+
+    #GitG
+    #Invoke-WebRequest -Uri 'http://ftp.gnome.org/pub/GNOME/binaries/win64/gitg/gitg-x86_64-3.20.0.msi' -UseBasicParsing -OutFile "$privdir\installrepo\gitg-x86_64-3.20.0.msi"
+    #Unblock-File -Path "$privdir\installrepo\gitg-x86_64-3.20.0.msi"
+
+    # https://community.smartbear.com/t5/SoapUI-Open-Source/Silent-Install-Option/td-p/10921
+    #Start-Process -FilePath "msiexec.exe" -ArgumentList "/i $privdir\installrepo\gitg-x86_64-3.20.0.msi /quiet /passive /log $privdir\install_logs\gitg.log" -NoNewWindow -Wait
+
+
+    
+    ###############################################
+    # Visual studio code
+    # https://github.com/Microsoft/vscode/archive/1.16.1.zip
+    Save-FileOnURL -URL "https://github.com/Microsoft/vscode/archive/1.16.1.zip"  -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "vSCode_1.16.1.zip"
 
 
 
