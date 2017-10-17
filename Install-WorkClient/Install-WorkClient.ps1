@@ -8,7 +8,7 @@
 
     $FullOutputPath = Join-Path -Path $OutputPath -ChildPath $Filename
 
-    Invoke-WebRequest -Uri $URL -OutFile $OutputPath -UseBasicParsing
+    Invoke-WebRequest -Uri $URL -OutFile $FullOutputPath -UseBasicParsing
     Unblock-File -Path $FullOutputPath
 }
 
@@ -157,18 +157,10 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ############################################
     # Create Directories
     New-DirectoryIfNotExists -dirname $privdir
-    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant","temp","greenshot")
+    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant","temp","greenshot","VMs\sources","VMs\machines")
     $subdirs | ForEach-Object {
         New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
     }
-
-    $GreenshotConfigDir = $(Join-Path -Path $env:APPDATA -ChildPath "Greenshot")
-    if(-not $(Test-Path -Path $GreenshotConfigDir)) { mkdir $GreenshotConfigDir }
-    copy -Path .\customizations\Greenshot.ini -Destination $GreenshotConfigDir
-
-
-
-
 
 
 
@@ -581,8 +573,14 @@ cd shellsettings
 
     ##################################
     # Notepad++
+    #
+    # 64 bit. no plugin manager
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip
+    # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.zip
     $NppAppDir = Join-Path -Path $env:ProgramFiles -ChildPath "Notepad++"
+
+   
+
     Invoke-WebRequest -Uri https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip -UseBasicParsing -OutFile $privdir\_down\npp.7.5.1.bin.x64.zip
     Unblock-file -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip
     $DEstPath = $NppAppDir
@@ -644,6 +642,12 @@ cd shellsettings
     ###########################################################
     # Greenshot
     # https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+
+    $GreenshotConfigDir = $(Join-Path -Path $env:APPDATA -ChildPath "Greenshot")
+    if(-not $(Test-Path -Path $GreenshotConfigDir)) { mkdir $GreenshotConfigDir }
+    copy -Path .\customizations\Greenshot.ini -Destination $GreenshotConfigDir
+
+
     $Package = $(Get-Package -name | ? { $_.Name -like 'Greenshot*'} )
 
     Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
@@ -673,6 +677,42 @@ cd shellsettings
 
     # https://community.smartbear.com/t5/SoapUI-Open-Source/Silent-Install-Option/td-p/10921
     Start-Process -FilePath "$privdir\_down\SoapUI-x64-5.2.1.exe" -ArgumentList "-q" -NoNewWindow -Wait
+
+    # Fix DPI scaling
+    # https://stackoverflow.com/questions/36709583/soapui-on-windows-10-high-dpi-4k-scaling-issue
+    $value = Get-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -ErrorAction SilentlyContinue
+    if(-not $Value) {
+        New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -Value 1 -PropertyType DWord
+    } else {
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -Value 1  
+    }
+  
+    $exefile = Get-ChildItem -Path "C:\Program Files\SmartBear\SoapUI-5.2.1\bin\SoapUI*.exe"
+    if($exefile) {
+        $ManifestFile = "${exefile}.manifest"
+    }
+    $ManifestContents = @'
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
+    <description>SoapUI</description>
+    <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+        <security>
+            <requestedPrivileges>
+                <requestedExecutionLevel xmlns:ms_asmv3="urn:schemas-microsoft-com:asm.v3"
+                    level="asInvoker" ms_asmv3:uiAccess="false">
+                </requestedExecutionLevel>
+            </requestedPrivileges>
+        </security>
+    </trustInfo>
+    <asmv3:application>
+        <asmv3:windowsSettings xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+            <ms_windowsSettings:dpiAware xmlns:ms_windowsSettings="http://schemas.microsoft.com/SMI/2005/WindowsSettings">false</ms_windowsSettings:dpiAware>
+        </asmv3:windowsSettings>
+    </asmv3:application>
+</assembly>    
+'@
+
+    $ManifestContents | Set-Content -Path $ManifestFile -Encoding UTF8 -Force
 
 
 
@@ -743,7 +783,7 @@ cd shellsettings
 
     ###################################################
     #
-    # 
+    # GitEye
     #
 
     Save-FileOnURL -URL "https://downloads-guests.open.collab.net/files/documents/61/13440/GitEye-2.0.0-windows.x86_64.zip" -Filename "GitEye-2.0.0-windows.x86_64.zip" -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo")
@@ -760,7 +800,40 @@ cd shellsettings
     ###############################################
     # Visual studio code
     # https://github.com/Microsoft/vscode/archive/1.16.1.zip
-    Save-FileOnURL -URL "https://github.com/Microsoft/vscode/archive/1.16.1.zip"  -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "vSCode_1.16.1.zip"
+    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    Save-FileOnURL -URL "https://go.microsoft.com/fwlink/?Linkid=850641"  -OutputPath $OutputPath -Filename "vSCode_latest.zip"
+
+    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "vSCode_latest.zip") -DestinationPath $(Join-Path -Path $privdir -ChildPath "tools\VSCode") -Force
+
+    #https://stackoverflow.com/questions/34286515/how-to-install-visual-studio-code-extensions-from-command-line
+    #donjayamanne.python
+    #ms-vscode.powershell
+
+
+
+
+
+
+    ################################################
+    #
+    # Atom editor
+    #
+    # https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip
+    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+
+    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
+    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
+    if( $(Test-Path -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64") ) ) {
+        Move-Item -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64\*") -Destination $DestinationPath 
+    }
+
+    $SettingsDir = Join-Path -Path $DestinationPath -ChildPath "settings"
+    mkdir $SettingsDir
+
+    # set config dir
+    [environment]::SetEnvironmentVariable("ATOM_HOME",$SettingsDir,[System.EnvironmentVariableTarget]::User)
+
 
 
 
@@ -778,6 +851,29 @@ cd shellsettings
 
 
 
+    #############################################
+    #
+    # VM sources
+    #
+
+    #https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2016
+    #http://care.dlservice.microsoft.com/dl/download/1/4/9/149D5452-9B29-4274-B6B3-5361DBDA30BC/14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO
+    #http://care.dlservice.microsoft.com/dl/download/6/2/A/62A76ABB-9990-4EFC-A4FE-C7D698DAEB96/9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.ISO
+    #
+    #http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Minimal-1708.iso
+    #http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Everything-1708.iso
+    #
+    #https://www.microsoft.com/en-us/evalcenter/evaluate-windows-10-enterprise
+    #
+
+
+
+    $VMSources = @{
+        Win2012R2 = "http://care.dlservice.microsoft.com/dl/download/6/2/A/62A76ABB-9990-4EFC-A4FE-C7D698DAEB96/9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.ISO";
+        Win2016="http://care.dlservice.microsoft.com/dl/download/1/4/9/149D5452-9B29-4274-B6B3-5361DBDA30BC/14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO"
+        CentOS7Minimal="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Minimal-1708.iso";
+        CentOS7Everything="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Everything-1708.iso"
+    }
 
 
 
