@@ -30,9 +30,14 @@ Function New-ProgramShortcut {
         ,[Parameter(Mandatory=$False)]
         [string]$WorkingDirectory
 
+        ,[Parameter(Mandatory=$False
+                    ,HelpMessage="if not set, icon will be created on desktop")]
+        [string]$IconPath
+
         ,[Parameter()]
         [switch]$AllUsers
     )
+
 
 <#
 set WshShell = CreateObject("Wscript.shell")
@@ -55,21 +60,24 @@ oMyShortCut.Save
 
         $ShellObj = New-Object -ComObject WScript.Shell
 
-        if($AllUsers) {
-            $DekstopPath = $ShellObj.SpecialFolders("AllUsersDesktop")
+        if(-not $IconPath) {
+
+            if($AllUsers) {
+                $IconPath = $ShellObj.SpecialFolders("AllUsersDesktop")
         
-        } else {
-            $DekstopPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
+            } else {
+                $IconPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
         
+            }
         }
 
-        Write-Verbose "Creating desktop icon $IconFileName in $DesktopPath"
+        Write-Verbose "Creating desktop icon $IconFileName in $IconPath"
 
-        $ShortCut = $ShellObj.CreateShortcut( $(Join-Path -Path $DekstopPath -ChildPath $IconFileName) )
+        $ShortCut = $ShellObj.CreateShortcut( $(Join-Path -Path $IconPath -ChildPath $IconFileName) )
         $ShortCut.TargetPath = $TargetPath
 
         if($WorkingDirectory) {
-            $ShortCut.WorkingDirectory = $WorkingDirectoryd
+            $ShortCut.WorkingDirectory = $WorkingDirectory
         }
 
         $ShortCut.Save()
@@ -190,9 +198,22 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         }
     }
 
+    New-DirectoryIfNotExists -dirname "$privdir\VMs\machines\Hyper-V"
+    # Hyper-V icon
+    #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "" -Verbose
 
+    # import latest hyper-v module
+    get-module -ListAvailable | ? { $_.Name -eq "Hyper-V" } | Sort-Object -Property Version -Descending | select -First 1  | Import-Module -Verbose
 
-    
+    Set-VMHost -VirtualHardDiskPath $privdir\VMs\machines\Hyper-V
+    Set-VMHost -VirtualMachinePath $privdir\VMs\machines\Hyper-V
+
+    $ExtNIC = Get-NetAdapter -Name Wi-Fi
+
+    New-VMSwitch -Name switch_private -SwitchType Private
+    New-VMSwitch -Name switch_internal -SwitchType Internal
+    New-VMSwitch -Name switch_external -NetAdapterName $ExtNIC.Name
+
 
 
 
@@ -216,21 +237,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         Start-Process -FilePath C:\Windows\System32\wusa.exe -ArgumentList "$privdir\_down\WindowsTH-RSAT_WS2016-x64.msu /quiet /norestart /log:$privdir\install_logs\rsat_install.log" -WindowStyle Hidden -Wait
         $RebootIt = $true
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -436,10 +442,6 @@ cd shellsettings
 
 
 
-
-
-
-
     ########################################################
     # set explorer options
     # https://stackoverflow.com/questions/4491999/configure-windows-explorer-folder-options-through-powershell
@@ -484,6 +486,10 @@ cd shellsettings
 "Default Download Directory"="C:\\Users\\aos019\\Downloads"
 "Use FormSuggest"="no"    
 "DisallowDefaultBrowserPrompt"=dword:00000000
+
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer]
+"EnableAutoTray"=dword:00000001
     #>
 
 
@@ -503,7 +509,7 @@ cd shellsettings
 "EnabledScopes"=dword:00000000
 
 "Friendly http errors"="no"
-"Start Page"="http://intra.orebroll.se/"
+"Start Page"="http://intra.domain.com/"
 
 
     #>
@@ -546,6 +552,8 @@ cd shellsettings
 
 
 
+
+
     ############################
     # vagrant
     # https://www.vagrantup.com/downloads.html
@@ -577,26 +585,45 @@ cd shellsettings
     # 64 bit. no plugin manager
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.zip
-    $NppAppDir = Join-Path -Path $env:ProgramFiles -ChildPath "Notepad++"
+    $NppAppDir = Join-Path -Path ${env:ProgramFiles(x86)} -ChildPath "Notepad++"
+    $NppURL = "https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.zip"
+    #$NppUrl = "https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip"
+    $DownloadPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
 
-   
+    Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename "notepad++.zip"
 
-    Invoke-WebRequest -Uri https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip -UseBasicParsing -OutFile $privdir\_down\npp.7.5.1.bin.x64.zip
-    Unblock-file -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip
-    $DEstPath = $NppAppDir
-    Expand-Archive -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip -DestinationPath $DEstPath
+    #Invoke-WebRequest -Uri  -UseBasicParsing -OutFile $privdir\_down\npp.7.5.1.bin.x64.zip
+    #Unblock-file -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip
+
+    $DestPath = $NppAppDir
+    Expand-Archive -Path $(Join-Path -Path $downloadPath -ChildPath "notepad++.zip" ) -DestinationPath $DEstPath
     #& c:\windows\system32\regsvr32.exe /s $DEstPath\nppshell_05.dll
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "N++.lnk"
-
-    # shell integration
-    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
-
-    mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "Notepad++.lnk" -IconPath "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
 
     
+    mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
+
+    # shell integration
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
+    New-Item -Path HKCR:\*\Shell\EditWithNpp -Value "Edit with Notepad++"
+    New-Item -Path HKCR:\*\Shell\EditWithNpp\command -Value "`"$(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe")`" `"%1`" `"%*`""
 
 
+    #Notepad++ plugin manager
+    Save-FileOnURL -URL "https://github.com/bruderstein/nppPluginManager/releases/download/v1.4.9/PluginManager_v1.4.9_UNI.zip" -OutputPath $downloadPath -Filename "PluginManager_v1.4.9_UNI.zip"
+    Expand-Archive -Path $(Join-Path -Path $downloadPath -ChildPath "PluginManager_v1.4.9_UNI.zip") -DestinationPath $NppAppDir
+
+    #Notepad++ plugins
+    # needs to be done after plugin manager has been started
+    # or find where source to PLuginManagerPlugins.xml is located and download it and parse it.
+    #[xml]$nppPlugindata = Get-Content -Path "$env:APPDATA\Notepad++\plugins\Config\PluginManagerPlugins.xml"
+    #
+    #$plugin = $nppPlugindata.plugins.plugin | ? { $_.Name -eq 'Tidy2' }
+    #$plugin.install.unicode.download
 
 
 
@@ -808,11 +835,28 @@ cd shellsettings
     #https://stackoverflow.com/questions/34286515/how-to-install-visual-studio-code-extensions-from-command-line
     #donjayamanne.python
     #ms-vscode.powershell
+    #mssql
+
+    # shell integration
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
+    $psdrive = Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue
+    if(-not $psdrive) {
+        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT    
+    }
+    New-Item -Path HKCR:\*\Shell\VSCode -Value "Edit with VS Code"
+    New-Item -Path HKCR:\*\Shell\VSCode\command -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`" `"%1`""
+    # new-ItemProperty seems to have trouble with "*"
+    # https://powershell.org/forums/topic/cant-set-new-itemproperty-to-registry-path-containing-astrix/
+    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`"" 
+
+    $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', 'Default')
+    #$subKey = $hive.CreateSubKey('*\shell\VSCode', $true)
+    $subkey = $hive.OpenSubKey('*\shell\VSCode', $true)
+    $subkey.SetValue('Icon', "$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")", 'String')
 
 
-
-
-
+    
 
     ################################################
     #
@@ -866,14 +910,50 @@ cd shellsettings
     #https://www.microsoft.com/en-us/evalcenter/evaluate-windows-10-enterprise
     #
 
+    $VMSources = @(
+        @{ Name="Win2012R2";
+           URL="http://care.dlservice.microsoft.com/dl/download/6/2/A/62A76ABB-9990-4EFC-A4FE-C7D698DAEB96/9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.ISO";
+           FileName="9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.ISO"
+         }
+        ,@{
+         Name="Win2016"
+         URL="http://care.dlservice.microsoft.com/dl/download/1/4/9/149D5452-9B29-4274-B6B3-5361DBDA30BC/14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO"
+         FileName="149D5452-9B29-4274-B6B3-5361DBDA30BC/14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO"
+        }
+        ,@{
+         Name="CentOS7Minimal"
+         URL="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Minimal-1708.iso";
+         FileName="CentOS-7-x86_64-Minimal-1708.iso"
+        }
+        ,@{
+          Name="CentOS7Everything"
+          URL="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Everything-1708.iso"
+          FileName="CentOS-7-x86_64-Everything-1708.iso"
+        }
+    )
 
-
-    $VMSources = @{
-        Win2012R2 = "http://care.dlservice.microsoft.com/dl/download/6/2/A/62A76ABB-9990-4EFC-A4FE-C7D698DAEB96/9600.17050.WINBLUE_REFRESH.140317-1640_X64FRE_SERVER_EVAL_EN-US-IR3_SSS_X64FREE_EN-US_DV9.ISO";
-        Win2016="http://care.dlservice.microsoft.com/dl/download/1/4/9/149D5452-9B29-4274-B6B3-5361DBDA30BC/14393.0.161119-1705.RS1_REFRESH_SERVER_EVAL_X64FRE_EN-US.ISO"
-        CentOS7Minimal="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Minimal-1708.iso";
-        CentOS7Everything="http://mirror.nsc.liu.se/CentOS/7/isos/x86_64/CentOS-7-x86_64-Everything-1708.iso"
+    $OutputPath = Join-Path -Path $privdir -ChildPath "VMs\sources"
+    $VMSources | ? { $_.Name -like 'CentOS*' } | ForEach-Object {
+        Save-FileOnURL -URL $_.URL -OutputPath $OutputPath -Filename $_.FileName -Verbose
     }
+
+
+    #############################################
+    #
+    # Printers
+    # in private script
+    #
+    # https://superuser.com/questions/135061/how-to-configure-a-network-printer-using-command-prompt-under-windows-7
+    #
+    #
+
+
+
+    #############################################
+    #
+    # Any Connect
+    # In private script
+    #
 
 
 
