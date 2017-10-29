@@ -215,6 +215,36 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     New-VMSwitch -Name switch_external -NetAdapterName $ExtNIC.Name
 
 
+    ########################################
+    #
+    # Microsoft Virtual machine converter
+    # 
+    # https://www.microsoft.com/en-us/download/details.aspx?id=42497
+    # https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi
+    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+    Save-FileOnURL -URL "https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi" -OutputPath $DownloadPath -Filename "mvmc_setup.msi"
+
+    & msiexec /i $(join-path -Path $DownloadPath -ChildPath "mvmc_setup.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\mvmc_setup.log")
+
+
+    ##########################################
+    #
+    # Vmware VM converter
+    #
+    # https://my.vmware.com/group/vmware/evalcenter?p=converter
+
+    
+    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+
+    #
+
+    #https://kb.vmware.com/s/article/1008207?language=en_US
+
+    #VMware-Converter-Agent.exe /s /v"/l*v %TEMP%/vmconvagentmsi.log /qn"
+
+    Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "VMware-converter-en-6.1.1-3533064.exe") `
+        -ArgumentList "/s /v`"/l*v $(join-path -Path $privdir -ChildPath "install_logs\vmware_converter.log") /qn`"" -Wait -NoNewWindow
+        
 
 
     ######################################
@@ -625,6 +655,10 @@ cd shellsettings
     #$plugin = $nppPlugindata.plugins.plugin | ? { $_.Name -eq 'Tidy2' }
     #$plugin.install.unicode.download
 
+    #XMLTOols
+    #Tidy2
+    #HTML tag
+    #JSON Viewer
 
 
 
@@ -697,7 +731,9 @@ cd shellsettings
 
 
     #############################################################
+    #
     # SoapUI
+    #
     # http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe
     Invoke-WebRequest -Uri 'http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe' -UseBasicParsing -OutFile "$privdir\_down\SoapUI-x64-5.2.1.exe"
     Unblock-File -Path "$privdir\_down\SoapUI-x64-5.2.1.exe"
@@ -951,9 +987,32 @@ cd shellsettings
 
     #############################################
     #
-    # Any Connect
+    # AnyConnect
     # In private script
     #
+
+
+    ##############################################
+    #
+    # VMWare VShpere, powercli
+    #
+    # http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe
+    # https://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1019862
+    $OutputPath = Join-path -Path $privdir -ChildPath "InstallRepo"
+    Save-FileOnURL -URL "http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe" -OutputPath $OutputPath -Filename "VMware-viclient-all-6.0.0.exe" 
+    # /v specifies params to msiexec.
+    Start-Process -FilePath $(Join-Path -Path $OutputPath -ChildPath "VMware-viclient-all-6.0.0.exe") `
+        -ArgumentList "/s /v`"/qn REBOOT=Reallysuppress /l $(Join-Path -Path $privdir -ChildPath "install_logs\viclient.log")`""  `
+         -NoNewWindow -Wait 
+
+
+    # powercli
+    # https://www.powershellgallery.com/packages/VMware.PowerCLI/6.5.3.6870460
+    Save-Module -Name VMware.PowerCLI -Path $(join-path -Path $privdir -ChildPath "Installrepo")
+
+
+
+
 
 
 
