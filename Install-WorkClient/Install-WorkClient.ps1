@@ -324,8 +324,27 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
+    
+    <# Min första fork-pull-request-mojäng #> 
+    
+        #Byter ut taskmanager mot sysinternals process explorer via reghack.
+        $sysinternals_replace_taskmanager_regpath="HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe"
+        if(Test-Path $sysinternals_replace_taskmanager_regpath)
+        {
+            $temp=(Get-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -ErrorAction SilentlyContinue).Debugger
 
-
+            if($temp -ne "$SysinternalsAppDir\procexp.exe")
+            {
+                New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value "$SysinternalsAppDir\procexp.exe" -PropertyType String -Force | Out-Null
+            }
+        } 
+        else
+        {
+            #Nyckeln finns inte (Skapas av procexp) så därför skapar vi den och lägger till strängvärdet.
+            New-Item -Path $sysinternals_replace_taskmanager_regpath -Force | Out-Null
+            New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value "$SysinternalsAppDir\procexp.exe" -PropertyType String -Force | Out-Null
+        }
+        <# Slut #Min första fork-pull-request-mojäng #> 
 
     #########################################
     # linux Subsystem for windows
