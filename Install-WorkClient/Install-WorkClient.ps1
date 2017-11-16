@@ -135,6 +135,8 @@ Function Install-WorkClient() {
     [string]$PrivDir
     ,[Parameter(Mandatory=$True)]
     [string]$CorpRepo
+    ,[Parameter()]
+    [switch]$ReplaceTaskManager
     )
 
     $RebootIt = $False
@@ -319,32 +321,41 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     $SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
     Invoke-WebRequest -Uri "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutFile $privdir\_down\sysinternals.zip
     Unblock-File -Path $privdir\_down\sysinternals.zip
-    remove-Item -Path $SysinteralsAppDir -Force
+    remove-Item -Path $SysinternalsAppDir -Force
     Expand-Archive -Path $privdir\_down\sysinternals.zip -DestinationPath $SysinternalsAppDir -Force
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
     
-    <# Min första fork-pull-request-mojäng #> 
-    
-        #Byter ut taskmanager mot sysinternals process explorer via reghack.
-        $sysinternals_replace_taskmanager_regpath="HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe"
-        if(Test-Path $sysinternals_replace_taskmanager_regpath)
-        {
-            $temp=(Get-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -ErrorAction SilentlyContinue).Debugger
+    if($ReplaceTaskManager) {
 
-            if($temp -ne "$SysinternalsAppDir\procexp.exe")
-            {
-                New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value "$SysinternalsAppDir\procexp.exe" -PropertyType String -Force | Out-Null
+        # Change task manager to process explorer
+        $sysinternals_replace_taskmanager_regpath="HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\taskmgr.exe"
+        if(Test-Path $sysinternals_replace_taskmanager_regpath) {
+
+            try {
+                $TaskManagerDebugger = Get-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger"
+
+                # use join-path here to be compatible with other platforms
+                if( $($TaskManagerDebugger.Debugger) -ne $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") ) {
+                    New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value "$SysinternalsAppDir\procexp.exe" -PropertyType String -Force | Out-Null
+                }
+            }
+            catch {
+                Write-Warning "Could replace task manager. $($_.Exception.Message)"
             }
         } 
         else
         {
-            #Nyckeln finns inte (Skapas av procexp) så därför skapar vi den och lägger till strängvärdet.
+            # Create reg path if it does not exist.
             New-Item -Path $sysinternals_replace_taskmanager_regpath -Force | Out-Null
-            New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value "$SysinternalsAppDir\procexp.exe" -PropertyType String -Force | Out-Null
+            New-ItemProperty -Path $sysinternals_replace_taskmanager_regpath -Name "Debugger" -Value $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe")  -PropertyType String -Force
         }
-        <# Slut #Min första fork-pull-request-mojäng #> 
+    }
+
+
+
+
 
     #########################################
     # linux Subsystem for windows
