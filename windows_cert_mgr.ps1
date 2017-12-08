@@ -125,13 +125,13 @@ $ReturnObject = New-Object -TypeName PSObject
 # Plocka ut den web site man valt att jobba med.
 #
 #$WebSiteName = "Default web site"
-$website = dir iis:\sites | ? { $_.name -eq $WebSiteName }
+$website = get-childitem iis:\sites | ? { $_.name -eq $WebSiteName }
 
 if(-Not $WebSite) {
     Throw "Can't find website $WebSiteName"
 }
 
-if($((dir IIS:\SslBindings | ? { $_.Sites -eq $WebSiteName }).count) -gt 1)  {
+if($((get-childitem IIS:\SslBindings | ? { $_.Sites -eq $WebSiteName }).count) -gt 1)  {
     Throw "There is more than one SSL binding found for site $WebSiteName. This is currently not supported!"
 }
 
@@ -155,7 +155,7 @@ try {
 
 }
 catch {
-	throw "Error executing Get-PFXCertificate. $_.Exception.Message"
+	throw "Error reading certificate information from $FilePath. $_.Exception.Message"
 }
 
 if($newcert) {
@@ -171,7 +171,7 @@ if($newcert) {
 
 if (-Not $SkipCheckOldCert) {
 
-	$oldcert = dir Cert:\LocalMachine\My | ? { $_.Subject -like "*$($CertCN)*"}
+	$oldcert = get-childitem Cert:\LocalMachine\My | ? { $_.Subject -like "*$($CertCN)*"}
 	
 	if(-Not $oldcert ) {
 		throw "Cant find any certificate with name $CertCN!"
@@ -222,7 +222,7 @@ Write-Verbose "Thumbprint of newly imported certificate: $($newthumb)"
 
 # kolla om vi hittar nya certifikatet i store'et.
 try {
-	$importedcert = dir Cert:\LocalMachine\My\$newthumb -ErrorAction Stop
+	$importedcert = get-childitem Cert:\LocalMachine\My\$newthumb -ErrorAction Stop
 }
 catch { 
 	throw "$CertCN does not seem to have been imported correctly! Can't find it in store. Check that password is correct on command line."
@@ -298,8 +298,6 @@ $ReturnObject | Add-Member -MemberType NoteProperty -Name NewCertificate -Value 
 
 
 pop-location
-
-
 
 # output return object
 $ReturnObject
