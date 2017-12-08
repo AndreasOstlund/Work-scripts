@@ -1,6 +1,6 @@
 <#
 	.SYNOPSIS
-        Byter ut ett certifikat som är installeras i IIS.
+        Byter ut ett certifikat som är installerat i IIS.
 
 	.DESCRIPTION
         Som standard byter scriptet ut (förnyar) ett certifikat med samma namn som det certifikat som pekas ut i parameter FilePath
@@ -23,7 +23,8 @@
 
 	.NOTES
 
-	.LINK
+    .LINK
+        https://github.com/AndreasOstlund/Work-scripts/blob/master/windows_cert_mgr.ps1
 
 #>
 [CmdletBinding()]
