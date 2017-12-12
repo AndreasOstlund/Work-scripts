@@ -462,9 +462,31 @@ cd shellsettings
 
 
 
-
     ###################################
     # git for windows
+    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing
+    $releasedata = $response.content | ConvertFrom-Json
+    $release = $releasedata.assets | ? { ($_.Name -like 'Git*64-bit.exe') } | Sort-Object created_at -Descending | select -First 1
+
+    
+    $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
+    Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
+    Unblock-File -Path $downloadPath
+
+    $GitSettngsDir = $PSScriptRoot
+    if(-not $GitSettngsDir) {
+        $GitSettngsDir = (Get-Location).Path
+    }
+    $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
+
+
+    Start-Process -FilePath "$privdir\_down\Git-2.15.1.2-64-bit.exe" `
+    -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
+    -NoNewWindow -Wait
+
+
+
+         <#
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing
     $releasedata = $response.content | ConvertFrom-Json
     $release = $releasedata.assets | ? { ($_.Name -like 'MinGit*64-bit.zip') -and ($_.Name -notlike '*busybox*')  } | Sort-Object created_at -Descending | select -First 1
@@ -478,7 +500,7 @@ cd shellsettings
     [environment]::SetEnvironmentVariable("Path",$env:Path+"$privdir\tools\MinGit\cmd",[System.EnvironmentVariableTarget]::Machine)
 
     #$releasedata.assets | Sort-Object created_at -Descending | select Name, created_at
-
+         #>
     
 
 
@@ -574,6 +596,13 @@ cd shellsettings
 
     #>
 
+    #################################################
+    # 
+    # Outlook settngs 
+    #
+
+    # https://support.microsoft.com/en-us/help/829982/-outlook-blocked-access-to-the-following-potentially-unsafe-attachment
+    New-ItemProperty -Path HKCU:\Software\Microsoft\Office\16.0\Outlook\security -Name Level1Remove -Value ".cer"
 
 
 
@@ -945,6 +974,30 @@ cd shellsettings
     [environment]::SetEnvironmentVariable("ATOM_HOME",$SettingsDir,[System.EnvironmentVariableTarget]::User)
 
 
+
+    ###############################################
+    # Choclatery
+    $ChocoCmd = @'
+iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+'@
+
+    $ChocoCmdBytes = [System.Text.Encoding]::Unicode.GetBytes($ChocoCmd)
+    $ChocoCmdEnc = [Convert]::ToBase64String($ChocoCmdBytes)
+
+    Start-Process -FilePath $([System.Environment]::ExpandEnvironmentVariables("%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe")) `
+        -ArgumentList "-ExecutionPolicy Bypass -EncodedCommand $ChocoCmdEnc" -Wait -NoNewWindow
+
+
+
+    ########################################################
+    #
+    # Terminals remote connection manager
+    #
+    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    Save-FileOnURL -URL "https://github.com/Terminals-Origin/Terminals/releases/download/4.0.1/TerminalsSetup_4.0.1.msi"  -OutputPath $OutputPath -Filename "TerminalsSetup_4.0.1.msi"
+
+    & msiexec /i $(join-path -Path $OutputPath -ChildPath "TerminalsSetup_4.0.1.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\terminals_setup.log")
+    
 
 
     ###############################################
