@@ -71,6 +71,8 @@ oMyShortCut.Save
             }
         }
 
+        # TODO: Handle if desktop folder in profile dir is stored on one-drive. In that case saving to c:\users\<users>\Desktop does not work
+
         Write-Verbose "Creating desktop icon $IconFileName in $IconPath"
 
         $ShortCut = $ShellObj.CreateShortcut( $(Join-Path -Path $IconPath -ChildPath $IconFileName) )
@@ -167,7 +169,19 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ############################################
     # Create Directories
     New-DirectoryIfNotExists -dirname $privdir
-    $subdirs = @("_down","install_logs","scheduled_scripts","tools","local_code","local_code\vagrant","temp","greenshot","VMs\sources","VMs\machines")
+    $subdirs = @(
+        "_down"
+        ,"install_logs"
+        ,"installrepo"
+        ,"scheduled_scripts"
+        ,"tools"
+        ,"local_code"
+        ,"local_code\vagrant"
+        ,"temp"
+        ,"greenshot"
+        ,"VMs\sources"
+        ,"VMs\machines"
+        )
     $subdirs | ForEach-Object {
         New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
     }
@@ -178,11 +192,13 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     #################################################
     # Windows features
-    $Features = @(
+    <#
         @{
             FeatureName="Microsoft-Hyper-V"
             All = $TRue
         },
+    #>
+    $Features = @(
         @{
             FeatureName="Microsoft-Windows-Subsystem-Linux"
             All = $False
@@ -264,6 +280,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     ########################################################
     # RSAT for windows 10. KB2693643
+    # https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu
     $rsat = get-hotfix -Id KB2693643
     if(-not $rsat) {
         Start-Process -FilePath C:\Windows\System32\wusa.exe -ArgumentList "$privdir\_down\WindowsTH-RSAT_WS2016-x64.msu /quiet /norestart /log:$privdir\install_logs\rsat_install.log" -WindowStyle Hidden -Wait
@@ -318,7 +335,8 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     #################################################
     # Sysinternals
     #
-    $SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
+    #$SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
+    $SysinternalsAppDir = join-path -path $privdir -ChildPath "tools\sysinternals"
     Invoke-WebRequest -Uri "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutFile $privdir\_down\sysinternals.zip
     Unblock-File -Path $privdir\_down\sysinternals.zip
     remove-Item -Path $SysinternalsAppDir -Force
@@ -480,7 +498,7 @@ cd shellsettings
     $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
 
 
-    Start-Process -FilePath "$privdir\_down\Git-2.15.1.2-64-bit.exe" `
+    Start-Process -FilePath $DownloadPath `
     -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
     -NoNewWindow -Wait
 
@@ -509,6 +527,7 @@ cd shellsettings
     #############################################
     # nuget
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -force
+    #Install-PackageProvider -Name NuGet -force
 
 
     #################################################
@@ -888,6 +907,7 @@ cd shellsettings
 
         Write-Warning "Starting ConEmu install with params: `"$ConEmuInstallCmd`""
 
+        # TODO: Download fails because of invalid cert. Need to get code for accepting cert into start-process command string.
         Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
         New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
         Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force
@@ -916,6 +936,7 @@ cd shellsettings
 
     # https://community.smartbear.com/t5/SoapUI-Open-Source/Silent-Install-Option/td-p/10921
     #Start-Process -FilePath "msiexec.exe" -ArgumentList "/i $privdir\installrepo\gitg-x86_64-3.20.0.msi /quiet /passive /log $privdir\install_logs\gitg.log" -NoNewWindow -Wait
+
 
 
     
@@ -959,7 +980,7 @@ cd shellsettings
     #
     # https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip
     $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
-    Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+    Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.25.1/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
     Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
@@ -973,6 +994,9 @@ cd shellsettings
     # set config dir
     [environment]::SetEnvironmentVariable("ATOM_HOME",$SettingsDir,[System.EnvironmentVariableTarget]::User)
 
+    #
+    # TODO: Create icon on start menu
+    # 
 
 
     ###############################################
@@ -1130,8 +1154,7 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #>
 }
 
-$dir = Read-Host -Prompt "Privdir"
+$privdir = Read-Host -Prompt "Privdir"
 $crepo = Read-Host -Prompt "Corp repo"
 
 #Install-WorkClient -PrivDir $dir -CorpRepo $crepo
-
