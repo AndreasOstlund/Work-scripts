@@ -274,6 +274,47 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
+    ######################################
+    #
+    # Firefox
+    #
+    #https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US
+    # https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options
+    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+    Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $DownloadPath -Filename "firefox.exe"
+    Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
+
+    $FFINIFile = @'
+[General]
+StartWithLastProfile=1
+
+[Profile0]
+Name=ao_profile
+IsRelative=0
+Path=%FFPROFILEPATH%
+Default=1
+'@
+
+    $profilepath = $(Join-Path -Path $privdir -ChildPath "ff_profile")
+    New-DirectoryIfNotExists -dirname $profilepath
+    $FFSettingsPath = $(Join-Path -Path $env:APPDATA -ChildPath "Mozilla\Firefox\")
+    $FFProfileINIPath = $(Join-Path -Path $FFSettingsPath -ChildPath "profiles.ini")
+
+
+    [xml]$FFInstallData = get-package | ? { $_.Name -like 'Mozilla firefox*' } | select -ExpandProperty SwidTagText
+
+    $FFExePath = join-path -path $FFInstallData.SoftwareIdentity.meta.InstallLocation -ChildPath "firefox.exe"
+    if($(Test-Path -Path $FFExePath)) {
+    
+        Start-Process -FilePath $FFExePath -ArgumentList "-CreateProfile `"ao_profile $profilepath`"" -Wait
+
+        $FFINIFile | _Expand-VariablesInString -VariableMappings @{ FFPROFILEPATH = $profilepath.Replace('\','/') } | Set-Content -Path $FFProfileINIPath 
+
+    } else {
+        Write-Warning "Could not find Firefox installed on path: $FFExePath"
+    }
+
+
 
 
 
@@ -475,7 +516,16 @@ cd shellsettings
 
 
 
+    ###################################
+    # AltDrag
+    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/stefansundin/altdrag/releases/latest" -UseBasicParsing
+    $releasedata = $response.content | ConvertFrom-Json
+    $release = $releasedata.assets | ? { ($_.Name -like 'AltDrag*.exe') } | Sort-Object created_at -Descending | select -First 1
+    $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
+    Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
+    Unblock-File -Path $downloadPath
 
+    #TODO: Silent install
 
 
 
@@ -787,7 +837,7 @@ cd shellsettings
     copy -Path .\customizations\Greenshot.ini -Destination $GreenshotConfigDir
 
 
-    $Package = $(Get-Package -name | ? { $_.Name -like 'Greenshot*'} )
+    $Package = $(Get-Package | ? { $_.Name -like 'Greenshot*'} )
 
     Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
     Unblock-File -Path "$privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe"
@@ -799,10 +849,13 @@ cd shellsettings
     ############################################################
     # Wireshark
     # https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe
-    $Package = $(Get-Package -name | ? { $_.Name -like 'Wireshark*'} )
+    # 
+    # TODO: silen install
+    #
+    $Package = $(Get-Package | ? { $_.Name -like 'Wireshark*'} )
     if(-not $Package) {
-        Invoke-WebRequest -Uri 'https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.1.exe"
-        Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.1.exe"
+        Invoke-WebRequest -Uri 'https://1.na.dl.wireshark.org/win64/Wireshark-win64-2.4.6.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.6.exe"
+        Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.6.exe"
 
         # install
     }
@@ -999,6 +1052,26 @@ cd shellsettings
     # 
 
 
+     # shell integration
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
+    $psdrive = Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue
+    if(-not $psdrive) {
+        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT    
+    }
+    New-Item -Path HKCR:\*\Shell\Atom -Value "Edit with Atom"
+    New-Item -Path HKCR:\*\Shell\Atom\command -Value "`"$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")`" `"%1`""
+    # new-ItemProperty seems to have trouble with "*"
+    # https://powershell.org/forums/topic/cant-set-new-itemproperty-to-registry-path-containing-astrix/
+    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`"" 
+
+    $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', 'Default')
+    $subkey = $hive.OpenSubKey('*\shell\Atom', $true)
+    $subkey.SetValue('Icon', "$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")", 'String')
+
+
+
+
     ###############################################
     # Choclatery
     $ChocoCmd = @'
@@ -1035,6 +1108,23 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name ShowRunasDifferentuserinStart -Value 1 -type DWORD
 
     Stop-Process -processname explorer
+
+
+
+
+    #############################################
+    #
+    # Cygwin
+    #
+
+    #TODO: automate cygwin install from a list of packages
+
+    $InitScript=@'
+ln -s /cygdrive/%CYGPRIVDIR% store
+git clone https://github.com/Winterlabs/shellsettings
+
+'@
+
 
 
 
