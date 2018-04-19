@@ -282,6 +282,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     # https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options
     $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
     Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $DownloadPath -Filename "firefox.exe"
+    # STart installation as silent (-ms)
     Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
 
     $FFINIFile = @'
@@ -307,6 +308,11 @@ Default=1
     if($(Test-Path -Path $FFExePath)) {
     
         Start-Process -FilePath $FFExePath -ArgumentList "-CreateProfile `"ao_profile $profilepath`"" -Wait
+
+        $ffproc = Start-Process -FilePath $FFExePath -PassThru
+
+        Start-Sleep -Seconds 10
+        $ffproc | Stop-Process -Verbose
 
         $FFINIFile | _Expand-VariablesInString -VariableMappings @{ FFPROFILEPATH = $profilepath.Replace('\','/') } | Set-Content -Path $FFProfileINIPath 
 
@@ -1120,8 +1126,22 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #TODO: automate cygwin install from a list of packages
 
     $InitScript=@'
+cd ~
 ln -s /cygdrive/%CYGPRIVDIR% store
 git clone https://github.com/Winterlabs/shellsettings
+
+# bash-git-prompt
+git clone https://github.com/magicmonty/bash-git-prompt.git .bash-git-prompt --depth=1
+
+cat << 'EOF' >> ~/.bashrc
+GIT_PROMPT_ONLY_IN_REPO=1
+source ~/.bash-git-prompt/gitprompt.sh
+EOF
+
+cat << 'EOF' >> ~/.bash_profile
+PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]$(date +%H:%M)\[\033[0;0m\] \$ "
+export PS1
+EOF
 
 '@
 
