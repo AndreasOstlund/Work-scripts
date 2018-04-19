@@ -285,16 +285,6 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     # STart installation as silent (-ms)
     Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
 
-    $FFINIFile = @'
-[General]
-StartWithLastProfile=1
-
-[Profile0]
-Name=ao_profile
-IsRelative=0
-Path=%FFPROFILEPATH%
-Default=1
-'@
 
     $profilepath = $(Join-Path -Path $privdir -ChildPath "ff_profile")
     New-DirectoryIfNotExists -dirname $profilepath
@@ -308,13 +298,6 @@ Default=1
     if($(Test-Path -Path $FFExePath)) {
     
         Start-Process -FilePath $FFExePath -ArgumentList "-CreateProfile `"ao_profile $profilepath`"" -Wait
-
-        $ffproc = Start-Process -FilePath $FFExePath -PassThru
-
-        Start-Sleep -Seconds 10
-        $ffproc | Stop-Process -Verbose
-
-        $FFINIFile | _Expand-VariablesInString -VariableMappings @{ FFPROFILEPATH = $profilepath.Replace('\','/') } | Set-Content -Path $FFProfileINIPath 
 
     } else {
         Write-Warning "Could not find Firefox installed on path: $FFExePath"
