@@ -1164,8 +1164,8 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\pkg")
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\current")
 
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg
 
 
 
@@ -1176,17 +1176,23 @@ ln -s /cygdrive/%CYGPRIVDIR% store
 git clone https://github.com/Winterlabs/shellsettings
 
 # bash-git-prompt
-git clone https://github.com/magicmonty/bash-git-prompt.git .bash-git-prompt --depth=1
+#git clone https://github.com/magicmonty/bash-git-prompt.git .bash-git-prompt --depth=1
 
-cat << 'EOF' >> ~/.bashrc
-GIT_PROMPT_ONLY_IN_REPO=1
-source ~/.bash-git-prompt/gitprompt.sh
-EOF
+#cat << 'EOF' >> ~/.bashrc
+#GIT_PROMPT_ONLY_IN_REPO=1
+#source ~/.bash-git-prompt/gitprompt.sh
+#EOF
 
-cat << 'EOF' >> ~/.bash_profile
-PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]$(date +%H:%M)\[\033[0;0m\] \$ "
-export PS1
-EOF
+#cat << 'EOF' >> ~/.bash_profile
+#PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]$(date +%H:%M)\[\033[0;0m\] \$ "
+#export PS1
+#EOF
+
+# APT-cyg
+mkdir ~/prog
+cd ~/prog
+curl -k https://raw.githubusercontent.com/transcode-open/apt-cyg/master/apt-cyg > apt-cyg
+install apt-cyg /bin
 
 '@
 
