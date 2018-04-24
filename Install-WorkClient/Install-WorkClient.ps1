@@ -163,11 +163,10 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
-
-
-
     ############################################
+    #
     # Create Directories
+    #
     New-DirectoryIfNotExists -dirname $privdir
     $subdirs = @(
         "_down"
@@ -186,7 +185,21 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
     }
 
+    ############################################
+    #
+    # Global inits
+    #
+    $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
 
+    
+    ############################################
+    #
+    # Bootstrap
+    #
+    $OutputFileName = "workscripts.zip"
+    Save-FileOnURL -URL https://codeload.github.com/AndreasOstlund/Work-scripts/zip/master -OutputPath $InstallrepoPath -Filename $OutputFileName
+    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath $OutputFileName) -DestinationPath $(Join-Path -Path $privdir -ChildPath "local_code")
+    Move-Item -Path $(join-path -path $InstallrepoPath  -ChildPath "local_code\work-scripts-master") -Destination   $(join-path -path $InstallrepoPath  -ChildPath "work-scripts") 
 
 
 
@@ -231,6 +244,27 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     New-VMSwitch -Name switch_private -SwitchType Private
     New-VMSwitch -Name switch_internal -SwitchType Internal
     New-VMSwitch -Name switch_external -NetAdapterName $ExtNIC.Name
+
+
+
+    ########################################
+    #
+    # Amazon WorkSpaces
+    # 
+    $DownloadPath = "https://d2td7dqidlhjx7.cloudfront.net/prod/global/windows/Amazon+WorkSpaces.msi"
+    Save-FileOnURL -URL $DownloadPath -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "Amazon_WorkSpaces.msi"
+
+
+    ########################################
+    #
+    # Amazon WorkDocs sync client
+    # 
+
+
+    $DownloadURL = "https://d28gdqadgmua23.cloudfront.net/win/AmazonWorkDocsSetup.exe"
+    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "AmazonWorkDocsSetup.exe"
+
 
 
     ########################################
@@ -311,6 +345,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ########################################################
     # RSAT for windows 10. KB2693643
     # https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu
+    Save-FileOnURL -URL "https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu" -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "windows10_rsat.exe"
     $rsat = get-hotfix -Id KB2693643
     if(-not $rsat) {
         Start-Process -FilePath C:\Windows\System32\wusa.exe -ArgumentList "$privdir\_down\WindowsTH-RSAT_WS2016-x64.msu /quiet /norestart /log:$privdir\install_logs\rsat_install.log" -WindowStyle Hidden -Wait
@@ -804,13 +839,14 @@ cd shellsettings
 
 
 
-
     ######################################################
     # Path Copy Copy
     # https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe
     #
-    Invoke-WebRequest -Uri 'https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe' -UseBasicParsing -OutFile $privdir\_down\PathCopyCopy14.0.exe
-    Unblock-File -Path $privdir\_down\PathCopyCopy14.0.exe
+    $DownloadURL = "https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe"
+    $DownloadPath = Join-Path -Path $InstallrepoPath -ChildPath "PathCopyCopy.exe"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "PathCopyCopy.exe"
+
 
 
 
@@ -952,9 +988,7 @@ cd shellsettings
         # TODO: Download fails because of invalid cert. Need to get code for accepting cert into start-process command string.
         Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
         New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
-        Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force
-
-    
+        Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force -Verbose    
     }
 
 
@@ -1079,11 +1113,25 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #
     # Terminals remote connection manager
     #
-    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
-    Save-FileOnURL -URL "https://github.com/Terminals-Origin/Terminals/releases/download/4.0.1/TerminalsSetup_4.0.1.msi"  -OutputPath $OutputPath -Filename "TerminalsSetup_4.0.1.msi"
+    #$OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    #Save-FileOnURL -URL "https://github.com/Terminals-Origin/Terminals/releases/download/4.0.1/TerminalsSetup_4.0.1.msi"  -OutputPath $OutputPath -Filename "TerminalsSetup_4.0.1.msi"
 
-    & msiexec /i $(join-path -Path $OutputPath -ChildPath "TerminalsSetup_4.0.1.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\terminals_setup.log")
+    #& msiexec /i $(join-path -Path $OutputPath -ChildPath "TerminalsSetup_4.0.1.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\terminals_setup.log")
     
+
+
+
+
+    ########################################################
+    #
+    # Remote desktop connection manager
+    #
+    $DownloadURL = "https://download.microsoft.com/download/A/F/0/AF0071F3-B198-4A35-AA90-C68D103BDCCF/rdcman.msi"
+    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+
+    Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "rdcman.msi"
+
+    & msiexec /i $(join-path -Path $DownloadPath -ChildPath "rdcman.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\rdcman.log")
 
 
     ###############################################
@@ -1105,8 +1153,22 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #
     # Cygwin
     #
+    #http://www.cygwin.com/faq/faq.html#faq.setup.cli
+    #https://stackoverflow.com/questions/745275/can-i-script-a-cygwin-install-to-include-certain-packages#
 
     #TODO: automate cygwin install from a list of packages
+
+    $DownloadURL = "http://www.cygwin.com/setup-x86_64.exe"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "setup-x86_64.exe"
+
+    mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\pkg")
+    mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\current")
+
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv
+
+
+
 
     $InitScript=@'
 cd ~

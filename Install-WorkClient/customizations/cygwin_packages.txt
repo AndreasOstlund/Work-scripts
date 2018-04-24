@@ -1,5 +1,3 @@
-Cygwin
-
 rxvt
 wget
 openssl
@@ -49,6 +47,3 @@ python
 python-setuptools
 tmux
 pv
-
-
-https://github.com/transcode-open/apt-cyg
