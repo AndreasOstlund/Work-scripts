@@ -1194,6 +1194,16 @@ cd ~/prog
 curl -k https://raw.githubusercontent.com/transcode-open/apt-cyg/master/apt-cyg > apt-cyg
 install apt-cyg /bin
 
+
+# PIP
+wget https://bootstrap.pypa.io/get-pip.py
+python get-pip.py
+
+# AWS cli
+pip install awscli
+
+
+
 '@
 
 
