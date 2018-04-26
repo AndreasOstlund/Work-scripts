@@ -130,6 +130,35 @@ Function _Expand-VariablesInString {
 }
 
 
+Function Get-GitHubProjectLatestRelease {
+    [cmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$Project
+
+        ,[Parameter(Mandatory=$True)]
+        [string]$FileNameMatch
+
+        ,[Parameter(Mandatory=$False)]
+        [string]$ReturnProperty
+    )    
+
+    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$Project/releases/latest" -UseBasicParsing
+    $releasedata = $response.content | ConvertFrom-Json
+    $release = $releasedata.assets | ? { ($_.Name -like $FileNameMatch) } | Sort-Object created_at -Descending | select -First 1
+
+    if($ReturnProperty) {
+        return $release.$ReturnProperty
+    } else {
+    
+        return $release
+    }
+
+
+    #https://github.com/keepassxreboot/keepassxc/releases/download/2.3.1/KeePassXC-2.3.1-Win64-Portable.zip
+}
+
+
 Function Install-WorkClient() {
     [cmdletBinding()]
     Param(
@@ -337,7 +366,9 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         Write-Warning "Could not find Firefox installed on path: $FFExePath"
     }
 
-
+    $FFChromePath = $(Join-Path -Path $profilepath -ChildPath "chrome")
+    New-DirectoryIfNotExists -dirname $FFChromePath
+    "" | set-content -Path $(join-path -path $FFChromePath -ChildPath "userChrome.css")
 
 
 
@@ -1202,6 +1233,9 @@ python get-pip.py
 # AWS cli
 pip install awscli
 
+# Solarized color theme
+# https://github.com/mavnn/mintty-colors-solarized
+curl -s https://raw.githubusercontent.com/mavnn/mintty-colors-solarized/master/.minttyrc.dark >> ~/.minttyrc
 
 
 '@
@@ -1290,8 +1324,15 @@ pip install awscli
 
 
 
+    #############################################
+    #
+    # KeepassXC
+    #
+    $DownloadURL = Get-GitHubProjectLatestRelease -Project "keepassxreboot/keepassxc" -FileNameMatch "KeePassXC*Win64-Portable.zip" -ReturnProperty "browser_download_url"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "KeepassXC_latest.zip"
 
-
+    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
+    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
 
 
     <#
