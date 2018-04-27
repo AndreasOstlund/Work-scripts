@@ -472,7 +472,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
 
 
     #########################################
-    # linux Subsystem for windows
+    # Linux Subsystem for Windows
     #
     # enable developer mode for lInux subsystem
     New-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force
@@ -561,11 +561,11 @@ cd shellsettings
             PWDOUTPUTDIR=ConvertTo-WSLPath -path $(join-path -path $PrivDir -ChildPath "bash_password.txt");
             COMPUTERNAME=$env:COMPUTERNAME.ToLower();
             HOSTFQDN="$env:COMPUTERNAME.$env:USERDNSDOMAIN".ToLower()
-         } | Set-Content -Path $WSLINitPrivSCriptPath -Encoding UTF8
+         } | Set-Content -Path $WSLINitPrivSCriptPath -Encoding Ascii
 
     Write-Warning $WSLINitPrivSCriptPath
 
-    Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh $(ConvertTo-WSLPath -path $(join-path -Path $WSLINitPrivSCriptPath -childPath "init_bash.sh"))`"" -NoNewWinodw -Wait
+    Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh $(ConvertTo-WSLPath -path $WSLINitPrivSCriptPath)`"" -Wait
 
 
 
@@ -1140,6 +1140,24 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
 
 
 
+
+
+
+    ################################################
+    #
+    # WiLMA Windows Layout Manager
+    #
+    # Needs to be started elevated to be able to enumerate windows
+    #
+    $DownloadURL = "http://www.stefandidak.com/wilma/winlayoutmanager.zip"
+    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    Save-FileOnURL -URL $DownloadPath  -OutputPath $OutputPath -Filename "winlayoutmanager.zip"
+
+    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\WiLMA")
+    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "winlayoutmanager.zip") -DestinationPath $DestinationPath -Force
+
+
+
     ########################################################
     #
     # Terminals remote connection manager
@@ -1331,8 +1349,8 @@ curl -s https://raw.githubusercontent.com/mavnn/mintty-colors-solarized/master/.
     $DownloadURL = Get-GitHubProjectLatestRelease -Project "keepassxreboot/keepassxc" -FileNameMatch "KeePassXC*Win64-Portable.zip" -ReturnProperty "browser_download_url"
     Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "KeepassXC_latest.zip"
 
-    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
-    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
+    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\KeePassXC")
+    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "KeepassXC_latest.zip") -DestinationPath $DestinationPath -Force
 
 
     <#
