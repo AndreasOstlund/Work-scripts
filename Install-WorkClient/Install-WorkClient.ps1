@@ -1322,6 +1322,26 @@ curl -s https://raw.githubusercontent.com/mavnn/mintty-colors-solarized/master/.
     #
 
 
+    #############################################
+    #
+    # Misc stuff
+    #
+
+    # Certificate msc
+    $CustomizationPath = $PSScriptRoot
+    if(-not $CustomizationPath) {
+        $CustomizationPath = (get-location).path
+    }
+
+    $CustomizationPath = Join-Path -Path $CustomizationPath -ChildPath "customizations"
+
+    $DesktopLocation = Get-ItemPropertyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name "Desktop"
+
+    Copy -Path $(Join-Path -Path $CustomizationPath -ChildPath "Certificates.msc") -Destination $DesktopLocation -Verbose
+
+
+
+
     ##############################################
     #
     # VMWare VShpere, powercli
