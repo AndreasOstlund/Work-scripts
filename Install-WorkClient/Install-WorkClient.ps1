@@ -874,29 +874,47 @@ cd shellsettings
     # Path Copy Copy
     # https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe
     #
-    $DownloadURL = "https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe"
-    $DownloadPath = Join-Path -Path $InstallrepoPath -ChildPath "PathCopyCopy.exe"
-    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "PathCopyCopy.exe"
+    # PathCopyCopy.exe /?
 
+    $Package = get-package | ? { $_.Name -like '*path copy copy*' }
+    if(-Not $package) {
+    
+        $proj = Get-GitHubProjectLatestRelease -Project "clechasseur/pathcopycopy" -FileNameMatch "PathCopyCopy*.exe"
+        #$DownloadURL = "https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe"
+        Save-FileOnURL -URL $proj.browser_download_url -OutputPath $InstallrepoPath -Filename "PathCopyCopy.exe"
 
-
-
+        $InstallFile = join-path -Path $InstallrepoPath -ChildPath "PathCopyCopy.exe"
+        $InstallLogPath = join-path -Path $privdir -ChildPath "install_logs\pathcopycopy.log"
+        Start-Process -FilePath $InstallFile -ArgumentList "/SILENT /LOG=`"$InstallLogPath`"" -Wait -NoNewWindow
+    }
 
 
 
     ###########################################################
+    #
     # Greenshot
-    # https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+    #
+    # https://github.com/greenshot/greenshot/
 
     $GreenshotConfigDir = $(Join-Path -Path $env:APPDATA -ChildPath "Greenshot")
     if(-not $(Test-Path -Path $GreenshotConfigDir)) { mkdir $GreenshotConfigDir }
     copy -Path .\customizations\Greenshot.ini -Destination $GreenshotConfigDir
 
-
     $Package = $(Get-Package | ? { $_.Name -like 'Greenshot*'} )
+    if(-not $package) {
+    
+        $proj = Get-GitHubProjectLatestRelease -Project "greenshot/greenshot" -FileNameMatch "Greenshot-INSTALLER*-RELEASE.exe"
+        Save-FileOnURL -URL $proj.browser_download_url -OutputPath $InstallrepoPath -Filename "Greenshot.exe"
+        
+        $InstallFile = Join-Path -Path $InstallrepoPath -ChildPath "Greenshot.exe"
+        $InstallLogPath = join-path -Path $privdir -ChildPath "install_logs\greenshot.log"
 
-    Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
-    Unblock-File -Path "$privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe"
+        Start-Process -FilePath $InstallFile -ArgumentList "/SILENT /LOG=`"$InstallLogPath`"" -Wait -NoNewWindow
+
+        #Invoke-WebRequest -Uri 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-1.2.10.6/Greenshot-INSTALLER-1.2.10.6-RELEASE.exe' -UseBasicParsing -OutFile $privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe
+        #Unblock-File -Path "$privdir\_down\Greenshot-INSTALLER-1.2.10.6-RELEASE.exe"
+    }
+
 
     
 
