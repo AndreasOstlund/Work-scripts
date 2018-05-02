@@ -258,6 +258,21 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         }
     }
 
+
+
+    ############################################
+    #
+    # Hyper-V config
+    #
+
+    # turn it off
+    bcdedit /set hypervisorlaunchtype off
+
+    # turn it on
+    #bcdedit /set hypervisorlaunchtype auto
+
+
+    <#
     New-DirectoryIfNotExists -dirname "$privdir\VMs\machines\Hyper-V"
     # Hyper-V icon
     #Copy-Item -Path "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Administrative Tools\Hyper-V Manager.lnk" -Destination "" -Verbose
@@ -273,7 +288,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     New-VMSwitch -Name switch_private -SwitchType Private
     New-VMSwitch -Name switch_internal -SwitchType Internal
     New-VMSwitch -Name switch_external -NetAdapterName $ExtNIC.Name
-
+    #>
 
 
     ########################################
@@ -287,9 +302,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ########################################
     #
     # Amazon WorkDocs sync client
-    # 
-
-
+    #
     $DownloadURL = "https://d28gdqadgmua23.cloudfront.net/win/AmazonWorkDocsSetup.exe"
     $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
     Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "AmazonWorkDocsSetup.exe"
@@ -1287,6 +1300,9 @@ python get-pip.py
 
 # AWS cli
 pip install awscli
+
+# pyserve
+pip install pyserve
 
 # Solarized color theme
 # https://github.com/mavnn/mintty-colors-solarized
