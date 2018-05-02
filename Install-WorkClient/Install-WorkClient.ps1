@@ -271,6 +271,9 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     # turn it on
     #bcdedit /set hypervisorlaunchtype auto
 
+    # stop service
+    get-service vmms | stop-service -PassThru | Set-Service -StartupType Manual
+
 
     <#
     New-DirectoryIfNotExists -dirname "$privdir\VMs\machines\Hyper-V"
@@ -1440,6 +1443,31 @@ source /usr/bin/virtualenvwrapper.sh
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\KeePassXC")
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "KeepassXC_latest.zip") -DestinationPath $DestinationPath -Force
+
+
+    #############################################
+    #
+    # Virtual box
+    #
+    $LatestVersionURL = "https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT"
+    $data = Invoke-WebRequest -Uri $LatestVersionURL -UseBasicParsing -DisableKeepAlive
+    $Version = $data.Content.Replace("`n","")
+    $VersionURL = "https://download.virtualbox.org/virtualbox/$Version/"
+
+    # try and find latest version
+    <#
+outerHTML                                                                       tagName href                            
+---------                                                                       ------- ----                            
+<a href="VirtualBox-5.2.10-122088-Win.exe">VirtualBox-5.2.10-122088-Win.exe</a> A       VirtualBox-5.2.10-122088-Win.exe
+<a href="VirtualBox-5.2.10-122406-Win.exe">VirtualBox-5.2.10-122406-Win.exe</a> A       VirtualBox-5.2.10-122406-Win.exe    
+    #>
+    $data = Invoke-WebRequest -Uri $VersionURL -UseBasicParsing -DisableKeepAlive 
+    $link = $data.Links | ? { $_.href -like '*win*.exe' } | Sort-Object -Property href -Descending | select -first 1
+
+    Save-FileOnURL -URL "${VersionURL}$($link.href)" -OutputPath $InstallrepoPath -Filename $link.href 
+ 
+
+    & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
 
 
     <#
