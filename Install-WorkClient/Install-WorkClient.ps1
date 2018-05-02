@@ -643,8 +643,27 @@ cd shellsettings
     Add-PoshGitToProfile -AllHosts
 
 
+    #################################################
+    #
+    # Powershell ISE Solarized theme
+    #
+    $DownloadURL = "https://codeload.github.com/rakheshster/Solarize-PSISE/zip/master"
+    $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
+    $DestinationPath = Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "Solarize-PSISE-master.zip"
+    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "Solarize-PSISE-master.zip") -DestinationPath $ToolsPath
+    Move-Item -Path $(Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE-master") -Destination $(Join-Path -Path $ToolsPath -ChildPath $DestinationPath)
 
 
+    # create a profile if no exist
+    if(!(Test-Path $profile)) { New-Item -ItemType File -Path $profile -Force }
+$ProfileScript=@"
+if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
+    $(Join-Path -Path $DestinationPath -ChildPath "Solarize-PSISE-AddOnMenu.ps1")  -Apply -Dark
+}
+"@
+
+    $ProfileScript | Add-Content -Path $profile
 
 
 
@@ -1272,6 +1291,22 @@ pip install awscli
 # Solarized color theme
 # https://github.com/mavnn/mintty-colors-solarized
 curl -s https://raw.githubusercontent.com/mavnn/mintty-colors-solarized/master/.minttyrc.dark >> ~/.minttyrc
+
+
+# python virtual env
+# http://atbrox.com/2009/09/21/how-to-get-pipvirtualenvfabric-working-on-cygwin/
+easy_install-2.7 virtualenv
+easy_install-2.7 virtualenvwrapper
+mkdir ~/.virtualenvs
+
+echo -e "export WORKON_HOME=\$HOME/.virtualenvs" >> ~/.bashrc
+echo -e "export PIP_VIRTUALENV_BASE=\$WORKON_HOME" >> ~/.bashrc
+echo "source /usr/bin/virtualenvwrapper.sh" >> ~/.bashrc
+
+export WORKON_HOME=$HOME/.virtualenvs
+export PIP_VIRTUALENV_BASE=$WORKON_HOME
+source /usr/bin/virtualenvwrapper.sh
+
 
 
 '@
