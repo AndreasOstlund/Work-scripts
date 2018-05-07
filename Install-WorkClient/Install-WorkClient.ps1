@@ -1224,6 +1224,7 @@ data-product : vagrant
                     ,'minimap-split-diff'
                     ,'language-powershell'
                     ,'pretty-json'
+                    ,'highlight-selected'
                 )
     $AtomPackages | Foreach-Object {
         # apm install $_
