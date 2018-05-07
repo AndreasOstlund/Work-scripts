@@ -44,7 +44,7 @@ set WshShell = CreateObject("Wscript.shell")
 strDesktop = WshShell.SpecialFolders("AllUsersDesktop")
 set oMyShortcut = WshShell.CreateShortcut(strDesktop + "\IIS Manager.lnk")
 'set oMyShortcut = WshShell.CreateShortcut("C:\Users\Public\Desktop\odbcad32.lnk")
-'oMyShortcut.WindowStyle = 3  &&Maximized 7=Minimized  4=Normal 
+'oMyShortcut.WindowStyle = 3  &&Maximized 7=Minimized  4=Normal
 'oMyShortcut.IconLocation = "C:\myicon.ico"
 OMyShortcut.TargetPath = "%windir%\system32\inetsrv\InetMgr.exe"
 'oMyShortCut.Hotkey = "ALT+CTRL+F"
@@ -64,10 +64,10 @@ oMyShortCut.Save
 
             if($AllUsers) {
                 $IconPath = $ShellObj.SpecialFolders("AllUsersDesktop")
-        
+
             } else {
                 $IconPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
-        
+
             }
         }
 
@@ -148,7 +148,7 @@ Function Get-GitHubProjectLatestRelease {
 
         ,[Parameter(Mandatory=$False)]
         [string]$ReturnProperty
-    )    
+    )
 
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$Project/releases/latest" -UseBasicParsing
     $releasedata = $response.content | ConvertFrom-Json
@@ -157,7 +157,7 @@ Function Get-GitHubProjectLatestRelease {
     if($ReturnProperty) {
         return $release.$ReturnProperty
     } else {
-    
+
         return $release
     }
 
@@ -220,7 +220,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         ,"VMs\machines"
         )
     $subdirs | ForEach-Object {
-        New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_) 
+        New-DirectoryIfNotExists -dirname $(Join-Path -Path $privdir -ChildPath $_)
     }
 
     ############################################
@@ -230,7 +230,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
 
-    
+
     ############################################
     #
     # Bootstrap
@@ -238,7 +238,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     $OutputFileName = "workscripts.zip"
     Save-FileOnURL -URL https://codeload.github.com/AndreasOstlund/Work-scripts/zip/master -OutputPath $InstallrepoPath -Filename $OutputFileName
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath $OutputFileName) -DestinationPath $(Join-Path -Path $privdir -ChildPath "local_code")
-    Move-Item -Path $(join-path -path $InstallrepoPath  -ChildPath "local_code\work-scripts-master") -Destination   $(join-path -path $InstallrepoPath  -ChildPath "work-scripts") 
+    Move-Item -Path $(join-path -path $InstallrepoPath  -ChildPath "local_code\work-scripts-master") -Destination   $(join-path -path $InstallrepoPath  -ChildPath "work-scripts")
 
 
 
@@ -307,7 +307,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ########################################
     #
     # Amazon WorkSpaces
-    # 
+    #
     $DownloadPath = "https://d2td7dqidlhjx7.cloudfront.net/prod/global/windows/Amazon+WorkSpaces.msi"
     Save-FileOnURL -URL $DownloadPath -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "Amazon_WorkSpaces.msi"
 
@@ -325,7 +325,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ########################################
     #
     # Microsoft Virtual machine converter
-    # 
+    #
     # https://www.microsoft.com/en-us/download/details.aspx?id=42497
     # https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi
     $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
@@ -340,7 +340,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     #
     # https://my.vmware.com/group/vmware/evalcenter?p=converter
 
-    
+
     $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
 
     #
@@ -351,7 +351,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "VMware-converter-en-6.1.1-3533064.exe") `
         -ArgumentList "/s /v`"/l*v $(join-path -Path $privdir -ChildPath "install_logs\vmware_converter.log") /qn`"" -Wait -NoNewWindow
-        
+
 
 
     ######################################
@@ -385,7 +385,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     $FFExePath = join-path -path $FFInstallData.SoftwareIdentity.meta.InstallLocation -ChildPath "firefox.exe"
     if($(Test-Path -Path $FFExePath)) {
-    
+
         Start-Process -FilePath $FFExePath -ArgumentList "-CreateProfile `"ao_profile $profilepath`"" -Wait
 
     } else {
@@ -415,7 +415,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
 
 
-    
+
 
     ###################################
     # Create login script
@@ -429,10 +429,10 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
 
 
 Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name "Driftinfo"
-  
+
 
     $LoginSCriptPath = "$privdir\scheduled_scripts\logon_script.ps1"
-    $LoginSCript | Set-Content -Path $LoginSCriptPath -Encoding UTF8 
+    $LoginSCript | Set-Content -Path $LoginSCriptPath -Encoding UTF8
 
     $SChedTask = Get-ScheduledTask -TaskName "Logon script" -TaskPath '\'
 
@@ -451,7 +451,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
 
 
 
-    
+
 
 
     #################################################
@@ -466,7 +466,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
-    
+
     if($ReplaceTaskManager) {
 
         # Change task manager to process explorer
@@ -484,7 +484,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
             catch {
                 Write-Warning "Could replace task manager. $($_.Exception.Message)"
             }
-        } 
+        }
         else
         {
             # Create reg path if it does not exist.
@@ -509,7 +509,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
 
 
 
-    # WSL path 
+    # WSL path
     # ii $env:LOCALAPPDATA\lxss\rootfs\etc\default
     # $env:LOCALAPPDATA\lxss\rootfs\etc\default
     # to set locale
@@ -582,8 +582,8 @@ cd shellsettings
     }
     $WSLINitPrivSCriptPath = Join-Path -Path $(ConvertTo-LowercasePathQualifier -path $WSLINitPrivSCriptPath) -ChildPath "init_bash.sh"
     $WSLInitPrivScript.Replace("`r`n","`n") | `
-        _Expand-VariablesInString -VariableMappings @{ 
-            SHELLUSERNAME=$env:USERNAME; 
+        _Expand-VariablesInString -VariableMappings @{
+            SHELLUSERNAME=$env:USERNAME;
             PWDOUTPUTDIR=ConvertTo-WSLPath -path $(join-path -path $PrivDir -ChildPath "bash_password.txt");
             COMPUTERNAME=$env:COMPUTERNAME.ToLower();
             HOSTFQDN="$env:COMPUTERNAME.$env:USERDNSDOMAIN".ToLower()
@@ -617,7 +617,7 @@ cd shellsettings
     $releasedata = $response.content | ConvertFrom-Json
     $release = $releasedata.assets | ? { ($_.Name -like 'Git*64-bit.exe') } | Sort-Object created_at -Descending | select -First 1
 
-    
+
     $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
     Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
     Unblock-File -Path $downloadPath
@@ -645,12 +645,12 @@ cd shellsettings
     Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
     Unblock-File -Path $downloadPath
 
-    Expand-Archive -Path $privdir\_down\$($release.name) -DestinationPath  $PrivDir\tools\MinGit 
+    Expand-Archive -Path $privdir\_down\$($release.name) -DestinationPath  $PrivDir\tools\MinGit
     [environment]::SetEnvironmentVariable("Path",$env:Path+"$privdir\tools\MinGit\cmd",[System.EnvironmentVariableTarget]::Machine)
 
     #$releasedata.assets | Sort-Object created_at -Descending | select Name, created_at
          #>
-    
+
 
 
 
@@ -709,7 +709,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
         ,@{ RegKey = "TaskbarAnimations"; Value = 0 }
         ,@{ RegKey = "TaskbarSmallIcons"; Value = 1 }
     )
-     
+
     $ExplorerRegData | ForEach-Object {
         Write-Warning "Setting $($_.RegKey) to $($_.Value)"
         Set-ItemProperty -Path $ExplorerRegPath -Name $_.REgKey -Value $_.Value
@@ -721,7 +721,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
 
 
     #Chrome policies
-    Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse 
+    Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
     Set-ItemProperty -path HKLM:\SOFTWARE\Policies\Google\Chrome -name 'IncognitoModeAvailability' -Value 0
 
 
@@ -735,7 +735,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     HKEY_CURRENT_USER\SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppContainer\Storage\microsoft.microsoftedge_8wekyb3d8bbwe\MicrosoftEdge\Main
 "Theme"=dword:00000000
 "Default Download Directory"="C:\\Users\\aos019\\Downloads"
-"Use FormSuggest"="no"    
+"Use FormSuggest"="no"
 "DisallowDefaultBrowserPrompt"=dword:00000000
 
 
@@ -749,11 +749,11 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     IE options
 
     HKEY_CURRENT_USER\SOFTWARE\Microsoft\Internet Explorer\Main
-    
+
  "Use FormSuggest"="no"
 "FormSuggest Passwords"="no"
 "FormSuggest PW Ask"="no"
-    
+
     HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main\WindowsSearch
 "ConfiguredScopes"=dword:00000000
 "AutoCompleteGroups"=dword:00000005
@@ -766,8 +766,8 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     #>
 
     #################################################
-    # 
-    # Outlook settngs 
+    #
+    # Outlook settngs
     #
 
     # https://support.microsoft.com/en-us/help/829982/-outlook-blocked-access-to-the-following-potentially-unsafe-attachment
@@ -821,7 +821,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     # get releases directory listing
     $ReleaseURL = "https://releases.hashicorp.com"
     # -UseBasicParsing is not used here to get more info on the links property
-    $data = Invoke-WebRequest -Uri "$ReleaseURL/vagrant" -DisableKeepAlive 
+    $data = Invoke-WebRequest -Uri "$ReleaseURL/vagrant" -DisableKeepAlive
     # try and get the latest release
     $release = $data.links | Sort-Object -Property outerText -Descending | select -first 1
 
@@ -841,7 +841,7 @@ href         : /vagrant/2.0.4/vagrant_2.0.4_x86_64.msi
 data-arch    : x86_64
 data-os      : windows
 data-version : 2.0.4
-data-product : vagrant    
+data-product : vagrant
     #>
 
     Save-FileOnURL -URL "$ReleaseURL$($WinRelease.href)" -OutputPath $InstallrepoPath -Filename $WinRelease.outerText
@@ -893,11 +893,11 @@ data-product : vagrant
     New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "N++.lnk"
     New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "Notepad++.lnk" -IconPath "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
 
-    
+
     mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
 
     # shell integration
-    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
     #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
     New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
     New-Item -Path HKCR:\*\Shell\EditWithNpp -Value "Edit with Notepad++"
@@ -956,7 +956,7 @@ data-product : vagrant
 
     $Package = get-package | ? { $_.Name -like '*path copy copy*' }
     if(-Not $package) {
-    
+
         $proj = Get-GitHubProjectLatestRelease -Project "clechasseur/pathcopycopy" -FileNameMatch "PathCopyCopy*.exe"
         #$DownloadURL = "https://github.com/clechasseur/pathcopycopy/releases/download/14.0/PathCopyCopy14.0.exe"
         Save-FileOnURL -URL $proj.browser_download_url -OutputPath $InstallrepoPath -Filename "PathCopyCopy.exe"
@@ -980,10 +980,10 @@ data-product : vagrant
 
     $Package = $(Get-Package | ? { $_.Name -like 'Greenshot*'} )
     if(-not $package) {
-    
+
         $proj = Get-GitHubProjectLatestRelease -Project "greenshot/greenshot" -FileNameMatch "Greenshot-INSTALLER*-RELEASE.exe"
         Save-FileOnURL -URL $proj.browser_download_url -OutputPath $InstallrepoPath -Filename "Greenshot.exe"
-        
+
         $InstallFile = Join-Path -Path $InstallrepoPath -ChildPath "Greenshot.exe"
         $InstallLogPath = join-path -Path $privdir -ChildPath "install_logs\greenshot.log"
 
@@ -994,14 +994,14 @@ data-product : vagrant
     }
 
 
-    
+
 
 
 
     ############################################################
     # Wireshark
     # https://1.eu.dl.wireshark.org/win64/Wireshark-win64-2.4.1.exe
-    # 
+    #
     # TODO: silen install
     #
     $Package = $(Get-Package | ? { $_.Name -like 'Wireshark*'} )
@@ -1030,9 +1030,9 @@ data-product : vagrant
     if(-not $Value) {
         New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -Value 1 -PropertyType DWord
     } else {
-        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -Value 1  
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\SideBySide' -Name "PreferExternalManifest" -Value 1
     }
-  
+
     $exefile = Get-ChildItem -Path "C:\Program Files\SmartBear\SoapUI-5.2.1\bin\SoapUI*.exe"
     if($exefile) {
         $ManifestFile = "${exefile}.manifest"
@@ -1055,7 +1055,7 @@ data-product : vagrant
             <ms_windowsSettings:dpiAware xmlns:ms_windowsSettings="http://schemas.microsoft.com/SMI/2005/WindowsSettings">false</ms_windowsSettings:dpiAware>
         </asmv3:windowsSettings>
     </asmv3:application>
-</assembly>    
+</assembly>
 '@
 
     $ManifestContents | Set-Content -Path $ManifestFile -Encoding UTF8 -Force
@@ -1115,7 +1115,7 @@ data-product : vagrant
         # TODO: Download fails because of invalid cert. Need to get code for accepting cert into start-process command string.
         Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Unrestricted -Command `"$ConEmuInstallCmd; iex ((new-object net.webclient).DownloadString('https://conemu.github.io/install2.ps1'))`"" -NoNewWindow -Wait
         New-ProgramShortcut -TargetPath $(Join-Path -Path $ConEmuInstallPath -ChildPath "ConEmu64.exe") -IconFileName "ConEmu" -WorkingDirectory $ConEmuInstallPath
-        Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force -Verbose    
+        Copy-Item -Path .\customizations\ConEmu.xml -Destination $ConEmuInstallPath -Force -Verbose
     }
 
 
@@ -1142,7 +1142,7 @@ data-product : vagrant
 
 
 
-    
+
     ###############################################
     # Visual studio code
     # https://github.com/Microsoft/vscode/archive/1.16.1.zip
@@ -1157,17 +1157,17 @@ data-product : vagrant
     #mssql
 
     # shell integration
-    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
     #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
     $psdrive = Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue
     if(-not $psdrive) {
-        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT    
+        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
     }
     New-Item -Path HKCR:\*\Shell\VSCode -Value "Edit with VS Code"
     New-Item -Path HKCR:\*\Shell\VSCode\command -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`" `"%1`""
     # new-ItemProperty seems to have trouble with "*"
     # https://powershell.org/forums/topic/cant-set-new-itemproperty-to-registry-path-containing-astrix/
-    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`"" 
+    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`""
 
     $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', 'Default')
     #$subKey = $hive.CreateSubKey('*\shell\VSCode', $true)
@@ -1175,7 +1175,7 @@ data-product : vagrant
     $subkey.SetValue('Icon', "$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")", 'String')
 
 
-    
+
 
     ################################################
     #
@@ -1188,7 +1188,7 @@ data-product : vagrant
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
     Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
     if( $(Test-Path -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64") ) ) {
-        Move-Item -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64\*") -Destination $DestinationPath 
+        Move-Item -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64\*") -Destination $DestinationPath
     }
 
     $SettingsDir = Join-Path -Path $DestinationPath -ChildPath "settings"
@@ -1199,27 +1199,35 @@ data-product : vagrant
 
     #
     # TODO: Create icon on start menu
-    # 
+    #
 
 
      # shell integration
-    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92    
+    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
     #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
     $psdrive = Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue
     if(-not $psdrive) {
-        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT    
+        New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
     }
     New-Item -Path HKCR:\*\Shell\Atom -Value "Edit with Atom"
     New-Item -Path HKCR:\*\Shell\Atom\command -Value "`"$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")`" `"%1`""
     # new-ItemProperty seems to have trouble with "*"
     # https://powershell.org/forums/topic/cant-set-new-itemproperty-to-registry-path-containing-astrix/
-    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`"" 
+    #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`""
 
     $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', 'Default')
     $subkey = $hive.OpenSubKey('*\shell\Atom', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")", 'String')
 
 
+    $AtomPackages = @('split-diff'
+                    ,'minimap-split-diff'
+                    ,'language-powershell'
+                    ,'pretty-json'
+                )
+    $AtomPackages | Foreach-Object {
+        # apm install $_
+    }
 
 
     ###############################################
@@ -1262,7 +1270,7 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #Save-FileOnURL -URL "https://github.com/Terminals-Origin/Terminals/releases/download/4.0.1/TerminalsSetup_4.0.1.msi"  -OutputPath $OutputPath -Filename "TerminalsSetup_4.0.1.msi"
 
     #& msiexec /i $(join-path -Path $OutputPath -ChildPath "TerminalsSetup_4.0.1.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\terminals_setup.log")
-    
+
 
 
 
@@ -1281,7 +1289,7 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
 
     ###############################################
     # MIsc stuff
-    
+
     # update powershell help
     update-help
 
@@ -1476,11 +1484,11 @@ source /usr/bin/virtualenvwrapper.sh
     # http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe
     # https://kb.vmware.com/selfservice/microsites/search.do?language=en_US&cmd=displayKC&externalId=1019862
     $OutputPath = Join-path -Path $privdir -ChildPath "InstallRepo"
-    Save-FileOnURL -URL "http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe" -OutputPath $OutputPath -Filename "VMware-viclient-all-6.0.0.exe" 
+    Save-FileOnURL -URL "http://vsphereclient.vmware.com/vsphereclient/VMware-viclient-all-6.0.0.exe" -OutputPath $OutputPath -Filename "VMware-viclient-all-6.0.0.exe"
     # /v specifies params to msiexec.
     Start-Process -FilePath $(Join-Path -Path $OutputPath -ChildPath "VMware-viclient-all-6.0.0.exe") `
         -ArgumentList "/s /v`"/qn REBOOT=Reallysuppress /l $(Join-Path -Path $privdir -ChildPath "install_logs\viclient.log")`""  `
-         -NoNewWindow -Wait 
+         -NoNewWindow -Wait
 
 
     # powercli
@@ -1511,16 +1519,16 @@ source /usr/bin/virtualenvwrapper.sh
 
     # try and find latest version
     <#
-outerHTML                                                                       tagName href                            
----------                                                                       ------- ----                            
+outerHTML                                                                       tagName href
+---------                                                                       ------- ----
 <a href="VirtualBox-5.2.10-122088-Win.exe">VirtualBox-5.2.10-122088-Win.exe</a> A       VirtualBox-5.2.10-122088-Win.exe
-<a href="VirtualBox-5.2.10-122406-Win.exe">VirtualBox-5.2.10-122406-Win.exe</a> A       VirtualBox-5.2.10-122406-Win.exe    
+<a href="VirtualBox-5.2.10-122406-Win.exe">VirtualBox-5.2.10-122406-Win.exe</a> A       VirtualBox-5.2.10-122406-Win.exe
     #>
-    $data = Invoke-WebRequest -Uri $VersionURL -UseBasicParsing -DisableKeepAlive 
+    $data = Invoke-WebRequest -Uri $VersionURL -UseBasicParsing -DisableKeepAlive
     $link = $data.Links | ? { $_.href -like '*win*.exe' } | Sort-Object -Property href -Descending | select -first 1
 
-    Save-FileOnURL -URL "${VersionURL}$($link.href)" -OutputPath $InstallrepoPath -Filename $link.href 
- 
+    Save-FileOnURL -URL "${VersionURL}$($link.href)" -OutputPath $InstallrepoPath -Filename $link.href
+
 
     & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
 
