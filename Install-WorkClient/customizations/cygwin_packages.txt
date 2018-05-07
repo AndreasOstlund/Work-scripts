@@ -49,3 +49,4 @@ tmux
 pv
 python-paramiko
 gcc-core
+zip

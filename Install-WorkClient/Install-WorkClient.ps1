@@ -107,6 +107,13 @@ Function ConvertTo-WSLPath($path) {
     return ("/mnt/"+$wslpath).Replace(':','').Replace('\','/')
 }
 
+Function ConvertTo-CygwinPath($Path) {
+
+    $cygpath = ConvertTo-LowercasePathQualifier -path $Path
+
+    return ("/cygdrive/"+$cygpath).Replace(':','').Replace('\','/')
+}
+
 
 Function _Expand-VariablesInString {
     [cmdletBinding()]
@@ -172,6 +179,8 @@ Function Install-WorkClient() {
 
     $RebootIt = $False
 
+
+
     # https://stackoverflow.com/questions/34331206/ignore-ssl-warning-with-powershell-downloadstring
 add-type @"
 using System.Net;
@@ -219,6 +228,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     # Global inits
     #
     $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
+    $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
 
     
     ############################################
@@ -803,19 +813,52 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
 
 
     ############################
+    #
     # vagrant
+    #
     # https://www.vagrantup.com/downloads.html
 
-    Invoke-WebRequest -Uri https://releases.hashicorp.com/vagrant/2.0.0/vagrant_2.0.0_x86_64.msi -UseBasicParsing -OutFile $privdir\_down\vagrant_2.0.0_x86_64.msi
-    Unblock-File -Path $privdir\_down\vagrant_2.0.0_x86_64.msi
+    # get releases directory listing
+    $ReleaseURL = "https://releases.hashicorp.com"
+    # -UseBasicParsing is not used here to get more info on the links property
+    $data = Invoke-WebRequest -Uri "$ReleaseURL/vagrant" -DisableKeepAlive 
+    # try and get the latest release
+    $release = $data.links | Sort-Object -Property outerText -Descending | select -first 1
+
+    $data = Invoke-WebRequest -Uri "$ReleaseURL$($release.outerText)" -DisableKeepAlive
+
+    $WinRelease = $data.Links | ? { $_.href -like '*_64.msi'} | select -first 1
+
+    <#
+    $WinRelease should now be like
+
+innerHTML    : vagrant_2.0.4_x86_64.msi
+innerText    : vagrant_2.0.4_x86_64.msi
+outerHTML    : <A href="/vagrant/2.0.4/vagrant_2.0.4_x86_64.msi" data-arch="x86_64" data-os="windows" data-version="2.0.4" data-product="vagrant">vagrant_2.0.4_x86_64.msi</A>
+outerText    : vagrant_2.0.4_x86_64.msi
+tagName      : A
+href         : /vagrant/2.0.4/vagrant_2.0.4_x86_64.msi
+data-arch    : x86_64
+data-os      : windows
+data-version : 2.0.4
+data-product : vagrant    
+    #>
+
+    Save-FileOnURL -URL "$ReleaseURL$($WinRelease.href)" -OutputPath $InstallrepoPath -Filename $WinRelease.outerText
+
+    $InstallFilePath = Join-Path -Path $InstallrepoPath -ChildPath $WinRelease.outerText
+
 
     $package = Get-Package -ProviderName msi -Name "Vagrant" -ErrorAction Continue
     if(-not $package) {
-        & msiexec /i $privdir\_down\vagrant_2.0.0_x86_64.msi INSTALLDIR="$privdir\tools\Vagrant" /norestart /passive /log $privdir\install_logs\vagrant.log
+        & msiexec /i $InstallFilePath INSTALLDIR="$privdir\tools\Vagrant" /norestart /passive /log $privdir\install_logs\vagrant.log
     }
-    $VagrantPAth = "$privdir\local_code\vagrant\.vagrant.d".Replace('\','/')
+    $VagrantPath = "$privdir\local_code\vagrant\.vagrant.d"
+    New-DirectoryIfNotExists -dirname $VagrantPath
+    $VagrantPath = $VagrantPath.Replace('\','/')
     [System.Environment]::SetEnvironmentVariable("VAGRANT_HOME",$VagrantPAth,"Machine")
-    [System.Environment]::SetEnvironmentVariable("VAGRANT_DEFAULT_PROVIDER","hyperv","Machine")
+    #[System.Environment]::SetEnvironmentVariable("VAGRANT_DEFAULT_PROVIDER","hyperv","Machine")
+    [System.Environment]::SetEnvironmentVariable("VAGRANT_DEFAULT_PROVIDER","virtualbox","Machine")
 
 
 
@@ -1249,6 +1292,9 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     Stop-Process -processname explorer
 
 
+    # create .aws directory
+    New-DirectoryIfNotExists -dirname  $(Join-Path -Path $HomePath -ChildPath ".aws")
+
 
 
     #############################################
@@ -1266,8 +1312,8 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\pkg")
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\current")
 
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip
 
 
 
@@ -1303,9 +1349,13 @@ python get-pip.py
 
 # AWS cli
 pip install awscli
+ln -s /cygdrive/%WINHOMEAWSDIR% ~/.aws
 
 # pyserve
 pip install pyserve
+
+#boto3
+pip install boto3
 
 # Solarized color theme
 # https://github.com/mavnn/mintty-colors-solarized
@@ -1331,6 +1381,11 @@ source /usr/bin/virtualenvwrapper.sh
 '@
 
 
+    $InitScript | _Expand-VariablesInString -VariableMappings @{
+        WINHOMEAWSDIR = ConvertTo-CygwinPath -Path  $(Join-Path -Path $(join-path -path $env:HOMEDRIVE -childpath $env:HOMEPATH) -childpath ".aws")
+        CYGPRIVDIR = ConvertTo-CygwinPath -Path $privdir
+
+    }
 
 
     #############################################
