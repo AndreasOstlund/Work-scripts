@@ -1219,16 +1219,26 @@ data-product : vagrant
     $subkey = $hive.OpenSubKey('*\shell\Atom', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")", 'String')
 
+    $APMPath = Join-Path -Path $DestinationPath -ChildPath "resources\app\apm\bin\apm.cmd"
+    if( $(Test-Path -Path $APMPath) ) {
 
-    $AtomPackages = @('split-diff'
-                    ,'minimap-split-diff'
-                    ,'language-powershell'
-                    ,'pretty-json'
-                    ,'highlight-selected'
-                )
-    $AtomPackages | Foreach-Object {
-        # apm install $_
+
+        $AtomPackages = @('split-diff'
+                        ,'minimap-split-diff'
+                        ,'language-powershell'
+                        ,'pretty-json'
+                        ,'highlight-selected'
+                    )
+        $AtomPackages | Foreach-Object {
+            & $APMPath install $_
+        }
+
+
+    
+    } else {
+        Write-Warning "apm.cmd was not found!"
     }
+
 
 
     ###############################################
