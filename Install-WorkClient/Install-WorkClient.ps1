@@ -89,6 +89,16 @@ oMyShortCut.Save
 
 }
 
+Function Add-ProgramToRegistryAutorun($ProgramName, $exepath) {
+
+    
+    if(-Not $(Test-Path -Path $exepath ) ) {
+        Throw "$exepath not found!"
+    }
+
+    New-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run' -Name $ProgramName -Value $exepath -PropertyType "String"
+}
+
 
 
 Function ConvertTo-LowercasePathQualifier($path) {
@@ -229,6 +239,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     #
     $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
+    $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
 
 
     ############################################
@@ -674,7 +685,6 @@ cd shellsettings
     # Powershell ISE Solarized theme
     #
     $DownloadURL = "https://codeload.github.com/rakheshster/Solarize-PSISE/zip/master"
-    $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
     $DestinationPath = Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE"
     Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "Solarize-PSISE-master.zip"
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "Solarize-PSISE-master.zip") -DestinationPath $ToolsPath
@@ -697,7 +707,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     # set explorer options
     # https://stackoverflow.com/questions/4491999/configure-windows-explorer-folder-options-through-powershell
     # https://superuser.com/questions/253249/windows-registry-entries-for-default-explorer-view
-
+            
     $ExplorerRegPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     $ExplorerRegData = @(
         @{ RegKey = "Hidden"; Value = 1 }
@@ -708,6 +718,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
         ,@{ RegKey = "AutoCheckSelect"; Value = 0 }
         ,@{ RegKey = "TaskbarAnimations"; Value = 0 }
         ,@{ RegKey = "TaskbarSmallIcons"; Value = 1 }
+        ,@{ RegKey = "DisallowShaking "; Value = 1 }
     )
 
     $ExplorerRegData | ForEach-Object {
@@ -944,7 +955,17 @@ data-product : vagrant
 
 
 
+    ######################################################
+    # MoveToDesktop
+    # https://github.com/Eun/MoveToDesktop/releases
+    #
+    $proj = Get-GitHubProjectLatestRelease -Project "Eun/MoveToDesktop" -FileNameMatch "MoveToDesktop*.zip"
+    Save-FileOnURL -URL $proj.browser_download_url -OutputPath $InstallrepoPath -Filename "MoveToDesktop-latest.zip"
+    $DEstinationPath = $(Join-Path -Path $ToolsPath -ChildPath "MoveToDesktop")
+    mkdir -Path $DEstinationPath
+    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "MoveToDesktop-latest.zip") -DestinationPath $DestinationPath
 
+    Add-ProgramToRegistryAutorun -ProgramName "MoveToDeskTop" -exepath $(Join-Path -Path $DestinationPath -ChildPath "MoveToDesktop.exe")
 
 
 
