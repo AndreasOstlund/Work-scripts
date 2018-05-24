@@ -50,3 +50,4 @@ pv
 python-paramiko
 gcc-core
 zip
+procps-ng
