@@ -367,6 +367,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 
     ######################################
     # Chrome
+    # https://www.google.com/chrome/eula.html?standalone=1&platform=win64
     $package = Get-Package -ProviderName msi -Name "Google Chrome" -ErrorAction Continue
     if(-not $package) {
         & msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
@@ -688,7 +689,7 @@ cd shellsettings
     $DestinationPath = Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE"
     Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "Solarize-PSISE-master.zip"
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "Solarize-PSISE-master.zip") -DestinationPath $ToolsPath
-    Move-Item -Path $(Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE-master") -Destination $(Join-Path -Path $ToolsPath -ChildPath $DestinationPath)
+    Move-Item -Path $(Join-Path -Path $ToolsPath -ChildPath "Solarize-PSISE-master") -Destination $DestinationPath
 
 
     # create a profile if no exist
@@ -1250,6 +1251,7 @@ data-product : vagrant
                         ,'pretty-json'
                         ,'highlight-selected'
                         ,'editorconfig'
+                        ,'language-powershell'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
@@ -1353,8 +1355,8 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\pkg")
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\current")
 
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir D:\users\aostlund\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip,procps-ng
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --local-package-dir c:\ao\tools\cygwin\pkg --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip,procps-ng
+    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir c:\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip,procps-ng
 
 
 
@@ -1422,11 +1424,11 @@ source /usr/bin/virtualenvwrapper.sh
 '@
 
 
-    $InitScript | _Expand-VariablesInString -VariableMappings @{
+    ($InitScript | _Expand-VariablesInString -VariableMappings @{
         WINHOMEAWSDIR = ConvertTo-CygwinPath -Path  $(Join-Path -Path $(join-path -path $env:HOMEDRIVE -childpath $env:HOMEPATH) -childpath ".aws")
         CYGPRIVDIR = ConvertTo-CygwinPath -Path $privdir
 
-    }
+    }).replace("`r`n","`n") | Set-Content -Path $(Join-Path -Path $CygwinInstallPath -ChildPath "home\init.sh") -Encoding UTF8 -NoNewline
 
 
     #############################################
@@ -1566,6 +1568,15 @@ outerHTML                                                                       
     & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
 
 
+
+    #############################################
+    #
+    # Postman
+    #
+
+    # https://dl.pstmn.io/download/latest/win64
+
+
     <#
     Get-WindowsOptionalFeature -Online | select FeatureName | Sort-Object FeatureName | ogv
 
@@ -1601,3 +1612,10 @@ $privdir = Read-Host -Prompt "Privdir"
 $crepo = Read-Host -Prompt "Corp repo"
 
 #Install-WorkClient -PrivDir $dir -CorpRepo $crepo
+
+
+###########################
+# tools to look into
+#
+# desktop ticker: http://www.battware.co.uk/desktopticker.htm
+#
