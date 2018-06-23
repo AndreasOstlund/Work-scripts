@@ -1411,7 +1411,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
                         ,'pretty-json'
                         ,'highlight-selected'
                         ,'editorconfig'
-                        ,'language-powershell'
+                        ,'file-icons'
+                        ,'git-plus'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
