@@ -12,6 +12,14 @@
     Unblock-File -Path $FullOutputPath
 }
 
+# https://stackoverflow.com/questions/30189997/how-to-add-attribute-if-it-doesnt-exist-using-powershell
+function Add-XMLAttribute([System.Xml.XmlNode] $Node, $Name, $Value) {
+  $attrib = $Node.OwnerDocument.CreateAttribute($Name)
+  $attrib.Value = $Value
+  $node.Attributes.Append($attrib)
+}
+
+
 Function New-DirectoryIfNotExists($dirname) {
 
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
@@ -176,20 +184,7 @@ Function Get-GitHubProjectLatestRelease {
 }
 
 
-Function Install-WorkClient() {
-    [cmdletBinding()]
-    Param(
-    [Parameter(Mandatory=$True)]
-    [string]$PrivDir
-    ,[Parameter(Mandatory=$True)]
-    [string]$CorpRepo
-    ,[Parameter()]
-    [switch]$ReplaceTaskManager
-    )
-
-    $RebootIt = $False
-
-
+Function _Disable-CertificateVerification() {
 
     # https://stackoverflow.com/questions/34331206/ignore-ssl-warning-with-powershell-downloadstring
 add-type @"
@@ -208,6 +203,25 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     [System.Net.ServicePointManager]::SecurityProtocol = $AllProtocols
     [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 
+}
+
+
+Function Install-WorkClient() {
+    [cmdletBinding()]
+    Param(
+    [Parameter(Mandatory=$True)]
+    [string]$PrivDir
+    ,[Parameter(Mandatory=$True)]
+    [string]$CorpRepo
+    ,[Parameter()]
+    [switch]$ReplaceTaskManager
+    )
+
+    $RebootIt = $False
+
+
+
+    _Disable-CertificateVerification
 
 
 
@@ -368,6 +382,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
     ######################################
     # Chrome
     # https://www.google.com/chrome/eula.html?standalone=1&platform=win64
+    # https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B8B854673-0000-CA19-42BA-9DB366EDCA51%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1/chrome/install/ChromeStandaloneSetup64.exe
     $package = Get-Package -ProviderName msi -Name "Google Chrome" -ErrorAction Continue
     if(-not $package) {
         & msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
@@ -888,50 +903,192 @@ data-product : vagrant
     # 64 bit. no plugin manager
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip
     # https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.zip
-    $NppAppDir = Join-Path -Path ${env:ProgramFiles(x86)} -ChildPath "Notepad++"
-    $NppURL = "https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.zip"
-    #$NppUrl = "https://notepad-plus-plus.org/repository/7.x/7.5.1/npp.7.5.1.bin.x64.zip"
-    $DownloadPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
 
-    Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename "notepad++.zip"
+    try {
 
-    #Invoke-WebRequest -Uri  -UseBasicParsing -OutFile $privdir\_down\npp.7.5.1.bin.x64.zip
-    #Unblock-file -Path $PrivDir\_down\npp.7.5.1.bin.x64.zip
-
-    $DestPath = $NppAppDir
-    Expand-Archive -Path $(Join-Path -Path $downloadPath -ChildPath "notepad++.zip" ) -DestinationPath $DEstPath
-    #& c:\windows\system32\regsvr32.exe /s $DEstPath\nppshell_05.dll
-
-    New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "N++.lnk"
-    New-ProgramShortcut -TargetPath $(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe") -IconFileName "Notepad++.lnk" -IconPath "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+        [xml]$NPPVersionInfo = (Invoke-WebRequest -Uri "https://notepad-plus-plus.org/update/getDownloadUrl.php" -UseBasicParsing -ErrorAction stop).content
 
 
-    mkdir $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++")
+        $NppAppDir = Join-Path -Path $ToolsPath -ChildPath "Notepad++"
+        $NppURL = $NPPVersionInfo.GUP.Location
+        $DownloadPath = $InstallrepoPath
 
-    # shell integration
-    # https://github.com/notepad-plus-plus/notepad-plus-plus/issues/92
-    #https://blogs.msdn.microsoft.com/lior/2009/06/18/what-no-hkcr-in-powershell/
-    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
-    New-Item -Path HKCR:\*\Shell\EditWithNpp -Value "Edit with Notepad++"
-    New-Item -Path HKCR:\*\Shell\EditWithNpp\command -Value "`"$(Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe")`" `"%1`" `"%*`""
+        $LOcalNPPFileName=($NppURL -split "/")[-1]
+        #Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename "notepad++.zip"
+        Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename $LOcalNPPFileName
+
+        $NppInstallDir = Join-Path -Path $ToolsPath -ChildPath "Notepad++"
+        $NppPluginDir = Join-Path -Path $NppInstallDir -ChildPath "plugins"
+
+        # http://nsis.sourceforge.net/Which_command_line_parameters_can_be_used_to_configure_installers
+        Start-Process -FilePath $(Join-Path -path $DownloadPath -ChildPath $LOcalNPPFileName) -ArgumentList "/S /D=$NppInstallDir" -Wait -NoNewWindow
+
+        # remove update dir to "disable" automatic updates
+        rmdir -Path $(Join-Path -Path $NppInstallDir -ChildPath "updater") -Recurse -Verbose
 
 
-    #Notepad++ plugin manager
-    Save-FileOnURL -URL "https://github.com/bruderstein/nppPluginManager/releases/download/v1.4.9/PluginManager_v1.4.9_UNI.zip" -OutputPath $downloadPath -Filename "PluginManager_v1.4.9_UNI.zip"
-    Expand-Archive -Path $(Join-Path -Path $downloadPath -ChildPath "PluginManager_v1.4.9_UNI.zip") -DestinationPath $NppAppDir
+        # start npp to initialize configs
+        $NppProc = Start-Process -FilePath $(Join-Path -Path $NppInstallDir -ChildPath "Notepad++.exe") -PassThru -LoadUserProfile -WindowStyle Minimized 
+        Start-Sleep 5
+        # Close Npp gracefully to make it write config files etc.
+        $NppProc.CloseMainWindow()
 
-    #Notepad++ plugins
-    # needs to be done after plugin manager has been started
-    # or find where source to PLuginManagerPlugins.xml is located and download it and parse it.
-    #[xml]$nppPlugindata = Get-Content -Path "$env:APPDATA\Notepad++\plugins\Config\PluginManagerPlugins.xml"
-    #
-    #$plugin = $nppPlugindata.plugins.plugin | ? { $_.Name -eq 'Tidy2' }
-    #$plugin.install.unicode.download
 
-    #XMLTOols
-    #Tidy2
-    #HTML tag
-    #JSON Viewer
+
+        # Npp already have a solarized dark theme
+        #Invoke-WebRequest -uri "https://raw.githubusercontent.com/walesmd/notepad-plus-plus-solarized/master/Solarized%20(Dark).xml" -OutFile "Solarized (Dark).xml"
+
+        # copy settings
+        Get-Content -Path  .\customizations\npp_config.xml.template -Raw | `
+            _Expand-VariablesInString -VariableMappings @{ 
+                APPDATA = $env:APPDATA;
+            } | `
+            Set-Content -Path $(join-path -Path $env:APPDATA -ChildPath "\Notepad++\config.xml")
+
+        #Copy-Item -Path .\customizations\npp_config.xml.template -Destination $(join-path -Path $env:APPDATA -ChildPath "\Notepad++\config.xml") -Verbose
+
+        # set font size in solarized theme
+        $ThemePath = Join-Path -Path $env:APPDATA -ChildPath "Notepad++\themes\Solarized.xml"
+        [xml]$Themedata = Get-Content -Path $ThemePath
+        $WidgetStyles = @('Global override','Default style')
+        $NppFontSize=14
+        $Themedata.NotepadPlus.GlobalStyles.WidgetStyle | ForEach-Object {
+            if($_.Name -in $WidgetStyles) {
+                Write-Warning "Setting $($_.Name) fontSize=$NppFontSize"
+                $_.fontSize = $NppFontSize.ToString()
+            }
+        }
+        $Themedata.Save($ThemePath)
+
+
+        # set tab configs
+        # "132" seems to be 4 spaces and override default
+        $NppLangFile =  $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++\langs.xml")
+        [xml]$NppLangData = get-content -Path $NppLangFile
+        
+        $NppTabSetting = "132"
+        $NppLangs=@('python','bash','json','xml')
+        $NppLangs | ForEach-Object {
+            
+            $LangNode = $NppLangData.NotepadPlus.Languages.SelectNodes("Language[@name=`"$_`"]")
+            if($LangNode) {
+                # use index 0 here because returned object is XPathNodeList
+                if(-Not $Langnode[0].GetAttribute('tabSettings')) {
+                    # https://stackoverflow.com/questions/30189997/how-to-add-attribute-if-it-doesnt-exist-using-powershell
+                    Write-Warning "Adding tabSetting attribute to $_"
+                    Add-XMLAttribute -Node $LangNode[0] -Name "tabSettings" -Value $NppTabSetting | Out-Null
+                } else {
+                    $LangNode[0].tabSettings = $NppTabSetting
+                }
+            }
+        }
+
+        $NppLangData.Save($NppLangFile)
+
+        $NppPluginListURL="https://nppxml.bruderste.in/pm/xml/plugins.zip"
+        $NppPluginsUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath "nppplugins")
+        Invoke-WebRequest -Uri $NppPluginListURL -OutFile $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip")
+        Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip") -DestinationPath $NppPluginsUnzipDir -Verbose
+        [xml]$NppPluginList = Get-Content -Path $(Join-Path -Path $NppPluginsUnzipDir -ChildPath "PluginManagerPlugins.xml") 
+
+    
+        # these must match name name in PlugManagerPlugins.xml
+        #$NppPluginsToInstall=@('XML Tools','Tidy2','HTML Tag','JSON Viewer')
+        $NppPluginsToInstall=@('XML Tools')
+        $NppPluginsToInstall | ForEach-Object {
+        
+            $InstallPLugin = $_
+            $NppPlugin = $NppPluginList.SelectNodes("//plugin[@name=`"$InstallPLugin`"]")
+            $PluginDownloadPath = $(Join-Path -Path $InstallrepoPath -ChildPath "$([guid]::NewGuid()).zip")
+            $PluginUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath ([guid]::NewGuid()))
+
+            #Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -OutFile $PluginDownloadPath
+            $RespHeaders = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -Method Head
+            if($RespHeaders.Headers.'Content-Type' -like '*text/html*') {
+                Write-Warning "Download URL returned text/html. trying to find meta http-equiv=refresh"
+
+                $resp = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -UseBasicParsing
+                $resp.content -match "<meta http-equiv.*refresh.*" | Out-Null
+                $DownloadURL = ($Matches.Values -split '.*url=(.*)">')[1]
+                if($DownloadURL) {
+                    
+                }
+            }
+
+            Throw "sdf"
+            Expand-Archive -Path $PluginDownloadPath -DestinationPath  $PluginUnzipDir -Verbose
+
+
+        }
+
+
+        
+
+        $NppLangs | ForEach-Object {
+            
+            $LangNode = $NppLangData.NotepadPlus.Languages.SelectNodes("Language[@name=`"$_`"]")
+            if($LangNode) {
+                # use index 0 here because returned object is XPathNodeList
+                if(-Not $Langnode[0].GetAttribute('tabSettings')) {
+
+
+
+
+
+
+        <#
+        
+        $NppPlugins=@{
+            XMLTOOLS=@{
+                Name="XmlTools";
+                DownloadURL="https://vorboss.dl.sourceforge.net/project/npp-plugins/XML%20Tools/Xml%20Tools%202.4.9%20Unicode/Xml%20Tools%202.4.9.2%20x86%20Unicode.zip"
+                InstallCmds=@'
+Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "dependencies\*.dll") -Destination $NppInstallDir  -Verbose;
+Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destination $NppPluginDir -Verbose;
+'@
+            };
+
+        }
+
+        $NppPlugins | ForEach-Object {
+            $Plugin = $_.Values
+
+            Write-Warning "Installing $($Plugin.Name)"
+
+            $PluginDownloadPath = Join-Path -Path $InstallrepoPath -ChildPath "$($Plugin.Name).zip"
+            $UnzipPath = $(Join-Path -Path $env:TEMP -ChildPath "npp_$($Plugin.Name)")
+
+
+            Invoke-WebRequest -Uri $Plugin.DownloadURL -OutFile $PluginDownloadPath
+            Expand-Archive -Path $PluginDownloadPath -DestinationPath $UnzipPath -Verbose
+
+            Invoke-Expression -Command $Plugin.InstallCmds -Verbose
+
+        }
+        #>
+
+
+
+
+
+        #Notepad++ plugins
+        # needs to be done after plugin manager has been started
+        # or find where source to PLuginManagerPlugins.xml is located and download it and parse it.
+        #[xml]$nppPlugindata = Get-Content -Path "$env:APPDATA\Notepad++\plugins\Config\PluginManagerPlugins.xml"
+        #
+        #$plugin = $nppPlugindata.plugins.plugin | ? { $_.Name -eq 'Tidy2' }
+        #$plugin.install.unicode.download
+
+        #XMLTOols
+        #Tidy2
+        #HTML tag
+        #JSON Viewer
+
+
+
+    } catch {
+        Write-Warning "Error: $($_.Exception.Message)"
+    }
 
 
 
@@ -1233,10 +1390,13 @@ data-product : vagrant
     }
     New-Item -Path HKCR:\*\Shell\Atom -Value "Edit with Atom"
     New-Item -Path HKCR:\*\Shell\Atom\command -Value "`"$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")`" `"%1`""
+
+    New-Item -Path HKCR:\*\Shell\AtomNewWindow -Value "Edit with Atom in new window"
+    New-Item -Path HKCR:\*\Shell\AtomNewWindow\command -Value "`"$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")`" --new-window `"%1`""
+
     # new-ItemProperty seems to have trouble with "*"
     # https://powershell.org/forums/topic/cant-set-new-itemproperty-to-registry-path-containing-astrix/
     #New-ItemProperty -Path HKCR:\*\Shell\VSCode -Name Icon -Value "`"$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")`""
-
     $hive = [Microsoft.Win32.RegistryKey]::OpenBaseKey('ClassesRoot', 'Default')
     $subkey = $hive.OpenSubKey('*\shell\Atom', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")", 'String')
@@ -1576,6 +1736,16 @@ outerHTML                                                                       
 
     # https://dl.pstmn.io/download/latest/win64
 
+    #############################################
+    #
+    # WinSCP
+    #
+    $DownloadURL="https://winscp.net/download/files/201806121356a4c9098191dd126bc346956e8718b798/WinSCP-5.13.2-Portable.zip"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "WinSCP-5.13.2-Portable.zip"
+    $InstallPath = Join-Path -Path $ToolsPath -ChildPath "WinSCP"
+    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "WinSCP-5.13.2-Portable.zip") -DestinationPath $InstallPath -Force
+
+    ii $ToolsPath
 
     <#
     Get-WindowsOptionalFeature -Online | select FeatureName | Sort-Object FeatureName | ogv
