@@ -1398,7 +1398,16 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     # https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip
     $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
-    Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.25.1/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+
+    $AtomDownloadURL = Get-GitHubProjectLatestRelease -Project "atom/atom" -FileNameMatch "atom-x64-windows.zip" -ReturnProperty "browser_download_url"
+
+    if(-not $AtomDownloadURL) {
+        Throw "Could not find atom download URL"
+    }
+
+    #Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.25.1/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+    Save-FileOnURL -URL $AtomDownloadURL  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
     Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
