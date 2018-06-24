@@ -927,6 +927,38 @@ data-product : vagrant
         rmdir -Path $(Join-Path -Path $NppInstallDir -ChildPath "updater") -Recurse -Verbose
 
 
+        $NppAppBinPath = Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe"
+        if(-not $(Test-Path -Path $NppAppBinPath)) {
+            Throw "Notepad++ was not found in the installation folder!"
+        }
+
+
+        # Associate files with notepad++
+        $FileAssociations = @{
+            "Microsoft.PowerShellData.1" = "edit";
+            "Microsoft.PowerShellModule.1" = "edit";
+            "Microsoft.PowerShellScript.1" = "edit";
+            "inifile"="open";
+            "inffile"="open";
+            "txtfile"="open";
+            "batfile"="edit";
+            "cmdfile"="edit";
+            "xmlfile"="edit";
+            "Windows.XamlDocument"="edit";
+        }
+
+        $FileAssociations.Keys | ForEach-Object {
+
+            $FType=$_
+            $FTypeAction=$FileAssociations[$FType]
+            Set-ItemProperty -Path HKCR:\$FType\shell\$FTypeAction\command -Name '(Default)' -Value "$NppAppBinPath `"%1`"" -verbose
+        }
+
+        # remove open for xml type
+        Remove-Item -Path HKCR:\xmlfile\shell\Open -Recurse
+
+
+
         # start npp to initialize configs
         $NppProc = Start-Process -FilePath $(Join-Path -Path $NppInstallDir -ChildPath "Notepad++.exe") -PassThru -LoadUserProfile -WindowStyle Minimized 
         Start-Sleep 5
@@ -982,8 +1014,12 @@ data-product : vagrant
                 }
             }
         }
-
         $NppLangData.Save($NppLangFile)
+
+
+        # Plugins for notepad++
+
+        # first find the plugin list.
 
         $NppPluginListURL="https://nppxml.bruderste.in/pm/xml/plugins.zip"
         $NppPluginsUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath "nppplugins")
@@ -1031,7 +1067,7 @@ data-product : vagrant
                 # use index 0 here because returned object is XPathNodeList
                 if(-Not $Langnode[0].GetAttribute('tabSettings')) {
 
-
+        }
 
 
 
