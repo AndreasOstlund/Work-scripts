@@ -1629,6 +1629,7 @@ if [ ! -e ~/.ssh_agent_env ]; then
   echo ".ssh_agent_env not found. executing ssh-agent..."
   ssh-agent 1>~/.ssh_agent_env
   eval `cat ~/.ssh_agent_env`
+  ssh-add
 else
   echo ".ssh_agent_env found. reading env file..."
   eval `cat ~/.ssh_agent_env`
@@ -1638,6 +1639,7 @@ else
     echo "ssh-agent pid in .ssh_agent_env looks stale. re-executing..."
     ssh-agent 1>~/.ssh_agent_env
     eval `cat ~/.ssh_agent_env`
+    ssh-add
   else
     echo "found an ssh-agent with pid $SSH_AGENT_PID"
   fi
