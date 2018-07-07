@@ -75,7 +75,7 @@ oMyShortCut.Save
 
             } else {
                 $IconPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
-
+                r
             }
         }
 
@@ -1070,8 +1070,9 @@ data-product : vagrant
                 # use index 0 here because returned object is XPathNodeList
                 if(-Not $Langnode[0].GetAttribute('tabSettings')) {
 
+                }
+            }
         }
-
 
 
 
