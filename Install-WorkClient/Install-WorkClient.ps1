@@ -75,7 +75,6 @@ oMyShortCut.Save
 
             } else {
                 $IconPath = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop"
-                r
             }
         }
 
@@ -1428,6 +1427,9 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     # TODO: Create icon on start menu
     #
+    New-ProgramShortcut -TargetPath $(join-path -Path $DestinationPath -ChildPath "atom.exe") `
+                        -WorkingDirectory $privdir `
+                        -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName Atom
 
 
      # shell integration
@@ -1621,14 +1623,35 @@ easy_install-2.7 virtualenv
 easy_install-2.7 virtualenvwrapper
 mkdir ~/.virtualenvs
 
-echo -e "export WORKON_HOME=\$HOME/.virtualenvs" >> ~/.bashrc
-echo -e "export PIP_VIRTUALENV_BASE=\$WORKON_HOME" >> ~/.bashrc
-echo "source /usr/bin/virtualenvwrapper.sh" >> ~/.bashrc
+
+cat <<'EOF' >>~/.bashrc
+if [ ! -e ~/.ssh_agent_env ]; then
+  echo ".ssh_agent_env not found. executing ssh-agent..."
+  ssh-agent 1>~/.ssh_agent_env
+  eval `cat ~/.ssh_agent_env`
+else
+  echo ".ssh_agent_env found. reading env file..."
+  eval `cat ~/.ssh_agent_env`
+  ps -p $SSH_AGENT_PID | grep -q "ssh-agent"
+  status=$?
+  if [ $status -gt 0 ]; then
+    echo "ssh-agent pid in .ssh_agent_env looks stale. re-executing..."
+    ssh-agent 1>~/.ssh_agent_env
+    eval `cat ~/.ssh_agent_env`
+  else
+    echo "found an ssh-agent with pid $SSH_AGENT_PID"
+  fi
+fi
 
 export WORKON_HOME=$HOME/.virtualenvs
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 source /usr/bin/virtualenvwrapper.sh
+EOF
 
+
+export WORKON_HOME=$HOME/.virtualenvs
+export PIP_VIRTUALENV_BASE=$WORKON_HOME
+source /usr/bin/virtualenvwrapper.sh
 
 
 '@
