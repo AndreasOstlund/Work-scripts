@@ -490,6 +490,9 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     Unblock-File -Path $privdir\_down\sysinternals.zip
     remove-Item -Path $SysinternalsAppDir -Force
     Expand-Archive -Path $privdir\_down\sysinternals.zip -DestinationPath $SysinternalsAppDir -Force
+
+    & reg import .\customizations\sysinternals.reg
+
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
