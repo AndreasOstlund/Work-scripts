@@ -25,6 +25,30 @@ Function New-DirectoryIfNotExists($dirname) {
     if(-not $(Test-Path -Path $dirname)) { mkdir $dirname }
 }
 
+Function Add-CompatibilitySettings {
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$ProgramPath,
+
+        [Parameter(Mandatory=$True)]
+        [string[]]$CompatModes
+    )
+
+    foreach($mode in $CompatModes) {
+    
+        switch($mode) {
+            "RUNASADMIN" { $compatstr += " $mode" }
+            "HIGHDPIAWARE" { $compatstr += " $mode" }
+        }
+    }
+
+    if($compatstr) {
+        $RegPath = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"
+        if(-Not $(Test-path -Path $RegPath) ) { New-Item -Path $RegPath -Name "" }
+        New-ItemProperty -Path $RegPath -Name $ProgramPath -Value $compatstr
+    }
+}
+
 
 Function New-ProgramShortcut {
     [cmdletBinding()]
@@ -379,9 +403,11 @@ Function Install-WorkClient() {
 
 
     ######################################
+    #
     # Chrome
     # https://www.google.com/chrome/eula.html?standalone=1&platform=win64
     # https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B8B854673-0000-CA19-42BA-9DB366EDCA51%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1/chrome/install/ChromeStandaloneSetup64.exe
+    #
     $package = Get-Package -ProviderName msi -Name "Google Chrome" -ErrorAction Continue
     if(-not $package) {
         & msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
@@ -444,6 +470,7 @@ Function Install-WorkClient() {
 
 
     ###################################
+    #
     # Create login script
     #
 $LoginSCript=@'
@@ -481,6 +508,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
 
 
     #################################################
+    #
     # Sysinternals
     #
     #$SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
@@ -627,7 +655,9 @@ cd shellsettings
 
 
     ###################################
+    #
     # AltDrag
+    #
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/stefansundin/altdrag/releases/latest" -UseBasicParsing
     $releasedata = $response.content | ConvertFrom-Json
     $release = $releasedata.assets | ? { ($_.Name -like 'AltDrag*.exe') } | Sort-Object created_at -Descending | select -First 1
@@ -636,12 +666,18 @@ cd shellsettings
     Unblock-File -Path $downloadPath
 
     #TODO: Silent install
-
-
+    # installs in profile dir
+    $DestinationPath = Join-Path -Path $env:APPDATA -ChildPath "AltDrag"
+    $ExePath = Join-Path -Path $DestinationPath -ChildPath "altdrag.exe"
+    if($(Test-Path -Path $ExePath)) {    
+        Add-CompatibilitySettings -ProgramPath $ExePath -CompatModes "HIGHDPIAWARE"
+    }
 
 
     ###################################
+    #
     # git for windows
+    #
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing
     $releasedata = $response.content | ConvertFrom-Json
     $release = $releasedata.assets | ? { ($_.Name -like 'Git*64-bit.exe') } | Sort-Object created_at -Descending | select -First 1
@@ -821,6 +857,9 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     Invoke-WebRequest -Uri https://www.scootersoftware.com/BCompare-3.3.13.18981.exe -UseBasicParsing -OutFile $privdir\_down\BCompare-3.3.13.18981.exe
     Unblock-File -Path $privdir\_down\BCompare-3.3.13.18981.exe
 
+
+    $DestinationPath = join-path -path $privdir -childpath  "tools\BC4\"
+
     # https://www.scootersoftware.com/vbulletin/showthread.php?15609-Unattended-install
     $BCompSEttingsDir = $PSScriptRoot
     if(-not $BCompSEttingsDir) {
@@ -830,12 +869,12 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     & $privdir\_down\BCompare-3.3.13.18981.exe /silent /loadinf="$BCompSettings"
 
 
+    $ExePath = Join-Path -Path $DestinationPath -ChildPath "BCompare.exe"
 
-
-
-
-
-
+    # Add icon to start menu
+    New-ProgramShortcut -TargetPath $ExePath `
+                        -WorkingDirectory $DestinationPath `
+                        -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName "Beyond Compare"
 
 
 
@@ -932,6 +971,12 @@ data-product : vagrant
         $NppAppBinPath = Join-Path -Path $NppAppDir -ChildPath "Notepad++.exe"
         if(-not $(Test-Path -Path $NppAppBinPath)) {
             Throw "Notepad++ was not found in the installation folder!"
+        }
+
+
+        $psdrive = Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue
+        if(-not $psdrive) {
+            New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT
         }
 
 
@@ -1397,6 +1442,15 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
 
     ################################################
     #
+    # Visual studio community ed
+    #
+    #https://download.visualstudio.microsoft.com/download/pr/d125163a-cf26-489a-b62e-94995a66d7c5/1ff3b2c80236499af4ef5bd802277f64/vs_community.exe
+
+
+
+
+    ################################################
+    #
     # Atom editor
     #
     # https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip
@@ -1424,9 +1478,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     # set config dir
     [environment]::SetEnvironmentVariable("ATOM_HOME",$SettingsDir,[System.EnvironmentVariableTarget]::User)
 
-    #
-    # TODO: Create icon on start menu
-    #
+
+    # Add icon to start menu
     New-ProgramShortcut -TargetPath $(join-path -Path $DestinationPath -ChildPath "atom.exe") `
                         -WorkingDirectory $privdir `
                         -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName Atom
@@ -1506,6 +1559,16 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\WiLMA")
     Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "winlayoutmanager.zip") -DestinationPath $DestinationPath -Force
+
+    $ExePath = join-path -Path $DestinationPath -ChildPath "wilma.exe"
+
+    # Add icon to start menu
+    New-ProgramShortcut -TargetPath $ExePath `
+                        -WorkingDirectory $privdir `
+                        -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName Wilma
+
+    # exe needs to run as admin
+    Add-CompatibilitySettings -ProgramPath $ExePath -CompatModes "RUNASADMIN"
 
 
 
@@ -1778,6 +1841,14 @@ source /usr/bin/virtualenvwrapper.sh
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "KeepassXC_latest.zip") -DestinationPath $DestinationPath -Force
 
 
+    $ExePath = Join-Path -Path $DestinationPath -ChildPath "KeePassXC.exe"
+
+    # Add icon to start menu
+    New-ProgramShortcut -TargetPath $ExePath `
+                        -WorkingDirectory $DestinationPath `
+                        -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName KeePassXC
+
+
     #############################################
     #
     # Virtual box
@@ -1801,6 +1872,14 @@ outerHTML                                                                       
 
 
     & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
+
+
+    #############################################
+    #
+    # BrowserSelect
+    #
+    # https://github.com/zumoshi/BrowserSelect
+
 
 
 
