@@ -1698,7 +1698,17 @@ easy_install-2.7 virtualenvwrapper
 mkdir ~/.virtualenvs
 
 
+cat <<'EOF' >>~/.bash_aliases
+alias gitbranch='git branch -vv -a'
+EOF
+
+
 cat <<'EOF' >>~/.bashrc
+if [ -f "${HOME}/.bash_aliases" ]; then
+  source "${HOME}/.bash_aliases"
+fi
+
+# handle ssh-agent
 if [ ! -e ~/.ssh_agent_env ]; then
   echo ".ssh_agent_env not found. executing ssh-agent..."
   ssh-agent 1>~/.ssh_agent_env
