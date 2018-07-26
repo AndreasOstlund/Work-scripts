@@ -1505,6 +1505,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     $subkey = $hive.OpenSubKey('*\shell\Atom', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $DestinationPath -ChildPath "atom.exe")", 'String')
 
+    # $privdir\tools\atom\resources\app\apm\bin\apm.cmd install <package>
     $APMPath = Join-Path -Path $DestinationPath -ChildPath "resources\app\apm\bin\apm.cmd"
     if( $(Test-Path -Path $APMPath) ) {
 
@@ -1518,6 +1519,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
                         ,'file-icons'
                         ,'git-plus'
                         ,'block-cursor'
+                        ,'file-types'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
