@@ -1517,6 +1517,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
                         ,'editorconfig'
                         ,'file-icons'
                         ,'git-plus'
+                        ,'block-cursor'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
@@ -1649,10 +1650,17 @@ git clone https://github.com/Winterlabs/shellsettings
 #source ~/.bash-git-prompt/gitprompt.sh
 #EOF
 
-#cat << 'EOF' >> ~/.bash_profile
-#PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]$(date +%H:%M)\[\033[0;0m\] \$ "
-#export PS1
-#EOF
+cat << 'EOF' >> ~/.bash_profile
+PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]\t \[\033[0;0m\]\$ "
+export PS1
+EOF
+
+cat << 'EOF' >> ~/.bashrc
+PS1="\[\e]0;\w\a\]\n\[\e[32m\]\u@\h \[\e[33m\]\w\[\e[0m\]\n\[\033[0;37m\]\t \[\033[0;0m\]\$ "
+export PS1
+EOF
+
+
 
 # APT-cyg
 mkdir ~/prog
@@ -1678,6 +1686,9 @@ pip install boto3
 # Solarized color theme
 # https://github.com/mavnn/mintty-colors-solarized
 curl -s https://raw.githubusercontent.com/mavnn/mintty-colors-solarized/master/.minttyrc.dark >> ~/.minttyrc
+
+# block cursor for mintty
+echo "CursorType=block" >> ~/.minttyrc
 
 
 # python virtual env
