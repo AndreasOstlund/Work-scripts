@@ -1729,6 +1729,12 @@ else
   fi
 fi
 
+
+# run stuff when executed from TMUX
+if [[ $TMUX ]]; then
+    cd ~/store/
+fi
+
 export WORKON_HOME=$HOME/.virtualenvs
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 source /usr/bin/virtualenvwrapper.sh
