@@ -278,7 +278,9 @@ Function Install-WorkClient() {
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
     $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
 
-    [environment]::SetEnvironmentVariable("AO_HOME",$privdir,[System.EnvironmentVariableTarget]::Machine)
+    if(-not $env:AO_HOME) {
+        [environment]::SetEnvironmentVariable("AO_HOME",$privdir,[System.EnvironmentVariableTarget]::Machine)
+    }
 
 
     ############################################
@@ -1870,6 +1872,9 @@ source /usr/bin/virtualenvwrapper.sh
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\KeePassXC")
     Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "KeepassXC_latest.zip") -DestinationPath $DestinationPath -Force
+
+    # TODO: Fix that keepass unzips into a subfolder
+
 
 
     $ExePath = Join-Path -Path $DestinationPath -ChildPath "KeePassXC.exe"
