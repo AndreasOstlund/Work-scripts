@@ -278,6 +278,8 @@ Function Install-WorkClient() {
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
     $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
 
+    [environment]::SetEnvironmentVariable("AO_HOME",$privdir,[System.EnvironmentVariableTarget]::Machine)
+
 
     ############################################
     #
