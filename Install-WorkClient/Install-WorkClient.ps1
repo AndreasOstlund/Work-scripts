@@ -391,9 +391,16 @@ Function Install-WorkClient {
     #
     # Amazon WorkSpaces
     #
-    $DownloadPath = "https://d2td7dqidlhjx7.cloudfront.net/prod/global/windows/Amazon+WorkSpaces.msi"
-    Save-FileOnURL -URL $DownloadPath -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "Amazon_WorkSpaces.msi"
+    $DownloadURL = "https://d2td7dqidlhjx7.cloudfront.net/prod/global/windows/Amazon+WorkSpaces.msi"
+    Save-FileOnURL -URL $DownloadURL -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "Amazon_WorkSpaces.msi"
 
+
+
+    ########################################
+    #
+    # AWS CLI for windows
+    #
+    Save-FileOnURL -URL "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi" -OutputPath $InstallrepoPath 
 
     ########################################
     #
@@ -794,6 +801,37 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
 
     $ProfileScript | Add-Content -Path $profile
 
+
+    #################################################
+    #
+    # Powershell Console Solarized theme
+    #
+    $InstallPath=Join-Path -Path $ToolsPath -ChildPath "cmd-colors-solarized"
+    Save-FileOnURL -URL "https://codeload.github.com/neilpa/cmd-colors-solarized/zip/master" -OutputPath $InstallrepoPath -Filename "cmd-colors-solarized.zip"
+    Expand-Archive -Path $(join-path -Path $InstallrepoPath -ChildPath "cmd-colors-solarized.zip") -DestinationPath $ToolsPath -Verbose
+    Move-item -Path $(Join-Path -Path $ToolsPath -ChildPath "cmd-colors-solarized-master") -Destination $InstallPath
+
+    @("$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\Windows PowerShell\Windows PowerShell.lnk"
+     ,"$($env:APPDATA)\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Windows PowerShell.lnk"
+     ) | ForEach-Object { 
+        if( $(Test-Path -Path $_) ) {
+            & $(Join-Path -Path $InstallPath -ChildPath "Update-Link.ps1") $_ dark
+        }
+    }
+
+    @'
+. (Join-Path -Path (Split-Path -Parent -Path $PROFILE) -ChildPath $(switch($HOST.UI.RawUI.BackgroundColor.ToString()){'White'{'Set-SolarizedLightColorDefaults.ps1'}'Black'{'Set-SolarizedDarkColorDefaults.ps1'}default{return}}))
+'@ | Add-Content -Path "$($env:HOME)\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
+
+
+
+@'
+if($GitPromptSettings) {
+    $GitPromptSettings.DefaultPromptPrefix = '$(Get-Date -f "yyyy-MM-dd HH:mm:ss") '
+} else {
+    function prompt() { '$(Get-Date -f "yyyy-MM-dd HH:mm:ss") '+"PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) "; }
+}
+'@ | Add-Content -Path $profile.CurrentUserAllHosts 
 
 
     ########################################################
