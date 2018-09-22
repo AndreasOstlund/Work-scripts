@@ -1,15 +1,24 @@
 ﻿Function Save-FileOnURL() {
     [cmdletBinding()]
     Param(
+        [Parameter(Mandatory=$True)]
         [string]$URL
-        ,[string]$OutputPath
-        ,[string]$Filename
+        ,[Parameter(Mandatory=$True)]
+        [string]$OutputPath
+        ,[Parameter(Mandatory=$False)]
+        [string]$Filename
     )
 
+    if(-not $Filename) {
+        # Get the last segment
+        $Filename=([System.uri]$URL).Segments[-1]
+    }
     $FullOutputPath = Join-Path -Path $OutputPath -ChildPath $Filename
 
     Invoke-WebRequest -Uri $URL -OutFile $FullOutputPath -UseBasicParsing
     Unblock-File -Path $FullOutputPath
+
+    return $FullOutputPath
 }
 
 # https://stackoverflow.com/questions/30189997/how-to-add-attribute-if-it-doesnt-exist-using-powershell
@@ -201,9 +210,6 @@ Function Get-GitHubProjectLatestRelease {
 
         return $release
     }
-
-
-    #https://github.com/keepassxreboot/keepassxc/releases/download/2.3.1/KeePassXC-2.3.1-Win64-Portable.zip
 }
 
 
@@ -229,15 +235,39 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
 }
 
 
-Function Install-WorkClient() {
+Function Invoke-MSIFile {
     [cmdletBinding()]
     Param(
-    [Parameter(Mandatory=$True)]
-    [string]$PrivDir
-    ,[Parameter(Mandatory=$True)]
-    [string]$CorpRepo
-    ,[Parameter()]
-    [switch]$ReplaceTaskManager
+        [Parameter(Mandatory=$True)]
+        $InstallFile
+
+        ,[Parameter(Mandatory=$False)]
+        $MSIParameters
+
+        ,[Parameter(Mandatory=$False)]
+        $LogDirectory
+    )
+
+    if($LogDirectory) {
+        $InstallFileName=Split-Path -Path $InstallFile -Leaf
+        $LogFile = join-path -path $LogDirectory -ChildPath $("{}_{}.log" -f (Split-Path -Path $InstallFile -Leaf), (get-date -Format "yyyyMMdd-HHmmss"))
+        $MSIParameters=$MSIParameters+" /log $LogFile"
+    }
+
+    & msiexec /i $InstallFile $MSIParameters
+
+}
+
+
+Function Install-WorkClient {
+    [cmdletBinding()]
+    Param(
+        [Parameter(Mandatory=$True)]
+        [string]$PrivDir
+        ,[Parameter(Mandatory=$True)]
+        [string]$CorpRepo
+        ,[Parameter()]
+        [switch]$ReplaceTaskManager
     )
 
     $RebootIt = $False
@@ -277,6 +307,7 @@ Function Install-WorkClient() {
     $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
     $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
+    $InstallLogPath = Join-Path -Path $PrivDir -ChildPath "install_logs"
 
     if(-not $env:AO_HOME) {
         [environment]::SetEnvironmentVariable("AO_HOME",$privdir,[System.EnvironmentVariableTarget]::Machine)
@@ -327,7 +358,7 @@ Function Install-WorkClient() {
     # Hyper-V config
     #
 
-    # turn it off
+    # turn Hyper-V off
     bcdedit /set hypervisorlaunchtype off
 
     # turn it on
@@ -368,10 +399,14 @@ Function Install-WorkClient() {
     #
     # Amazon WorkDocs sync client
     #
-    $DownloadURL = "https://d28gdqadgmua23.cloudfront.net/win/AmazonWorkDocsSetup.exe"
-    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
-    Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "AmazonWorkDocsSetup.exe"
+    #$DownloadURL = "https://d28gdqadgmua23.cloudfront.net/win/AmazonWorkDocsSetup.exe"
+    $DownloadURL="https://d3f2hupz96ggz3.cloudfront.net/win/AWSWorkDocsDriveClient.msi"
+    $InstallFilePath = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath #-Filename "AmazonWorkDocsSetup.exe"
+    
 
+    Invoke-MSIFile -InstallFile $InstallFilePath -MSIParameters "/norestart /passive" -Log
+
+    & msiexec /i $InstallFilePath /norestart /passive /log 
 
 
     ########################################
@@ -1867,6 +1902,7 @@ source /usr/bin/virtualenvwrapper.sh
     #
     # KeepassXC
     #
+    #https://github.com/keepassxreboot/keepassxc/releases/download/2.3.1/KeePassXC-2.3.1-Win64-Portable.zip
     $DownloadURL = Get-GitHubProjectLatestRelease -Project "keepassxreboot/keepassxc" -FileNameMatch "KeePassXC*Win64-Portable.zip" -ReturnProperty "browser_download_url"
     Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "KeepassXC_latest.zip"
 
