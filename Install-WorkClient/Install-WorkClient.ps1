@@ -44,7 +44,7 @@ Function Add-CompatibilitySettings {
     )
 
     foreach($mode in $CompatModes) {
-    
+
         switch($mode) {
             "RUNASADMIN" { $compatstr += " $mode" }
             "HIGHDPIAWARE" { $compatstr += " $mode" }
@@ -131,7 +131,7 @@ oMyShortCut.Save
 
 Function Add-ProgramToRegistryAutorun($ProgramName, $exepath) {
 
-    
+
     if(-Not $(Test-Path -Path $exepath ) ) {
         Throw "$exepath not found!"
     }
@@ -304,7 +304,7 @@ Function Install-WorkClient {
     #
     # Global inits
     #
-    $InstallrepoPath = Join-Path $privdir -ChildPath "installrepo"
+    $InstallRepoPath = Join-Path $privdir -ChildPath "installrepo"
     $HomePath =  $(Join-Path -Path $env:HOMEDRIVE -ChildPath $env:HOMEPATH)
     $ToolsPath = Join-Path -Path $privdir -ChildPath "tools"
     $InstallLogPath = Join-Path -Path $PrivDir -ChildPath "install_logs"
@@ -392,15 +392,16 @@ Function Install-WorkClient {
     # Amazon WorkSpaces
     #
     $DownloadURL = "https://d2td7dqidlhjx7.cloudfront.net/prod/global/windows/Amazon+WorkSpaces.msi"
-    Save-FileOnURL -URL $DownloadURL -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "Amazon_WorkSpaces.msi"
+    $OutputFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath
 
+    Invoke-MSIFile -InstallFile $OutputFile
 
 
     ########################################
     #
     # AWS CLI for windows
     #
-    Save-FileOnURL -URL "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi" -OutputPath $InstallrepoPath 
+    Save-FileOnURL -URL "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi" -OutputPath $InstallrepoPath
 
     ########################################
     #
@@ -409,11 +410,10 @@ Function Install-WorkClient {
     #$DownloadURL = "https://d28gdqadgmua23.cloudfront.net/win/AmazonWorkDocsSetup.exe"
     $DownloadURL="https://d3f2hupz96ggz3.cloudfront.net/win/AWSWorkDocsDriveClient.msi"
     $InstallFilePath = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath #-Filename "AmazonWorkDocsSetup.exe"
-    
 
+
+    #& msiexec /i $InstallFilePath /norestart /passive /log
     Invoke-MSIFile -InstallFile $InstallFilePath -MSIParameters "/norestart /passive" -Log
-
-    & msiexec /i $InstallFilePath /norestart /passive /log 
 
 
     ########################################
@@ -422,10 +422,10 @@ Function Install-WorkClient {
     #
     # https://www.microsoft.com/en-us/download/details.aspx?id=42497
     # https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi
-    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
-    Save-FileOnURL -URL "https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi" -OutputPath $DownloadPath -Filename "mvmc_setup.msi"
-
-    & msiexec /i $(join-path -Path $DownloadPath -ChildPath "mvmc_setup.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\mvmc_setup.log")
+    $DownloadURL = "https://download.microsoft.com/download/9/1/E/91E9F42C-3F1F-4AD9-92B7-8DD65DA3B0C2/mvmc_setup.msi"
+    $OutputPath = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
+    Invoke-MSIFile -InstallFile $OutputPath -MSIParameters "/norestart /passive" -LogDirectory $InstallLogPath
+    #& msiexec /i $(join-path -Path $DownloadPath -ChildPath "mvmc_setup.msi")  /log $(join-path -Path $privdir -ChildPath "install_logs\mvmc_setup.log")
 
 
     ##########################################
@@ -436,11 +436,8 @@ Function Install-WorkClient {
 
 
     $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
-
     #
-
     #https://kb.vmware.com/s/article/1008207?language=en_US
-
     #VMware-Converter-Agent.exe /s /v"/l*v %TEMP%/vmconvagentmsi.log /qn"
 
     Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "VMware-converter-en-6.1.1-3533064.exe") `
@@ -452,11 +449,15 @@ Function Install-WorkClient {
     #
     # Chrome
     # https://www.google.com/chrome/eula.html?standalone=1&platform=win64
-    # https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B8B854673-0000-CA19-42BA-9DB366EDCA51%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1/chrome/install/ChromeStandaloneSetup64.exe
+    #
+    # These seems to be pretty static... https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B8B854673-0000-CA19-42BA-9DB366EDCA51%7D%26lang%3Den%26browser%3D4%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%3Dx64-stable-statsdef_1/chrome/install/ChromeStandaloneSetup64.exe
     #
     $package = Get-Package -ProviderName msi -Name "Google Chrome" -ErrorAction Continue
     if(-not $package) {
-        & msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
+        $DownloadURL = "https://dl.google.com/tag/s/appguid%3D%7B8A69D345-D564-463C-AFF1-A69D9E530F96%7D%26iid%3D%7B030924C0-2C46-0A43-C343-8E1DFA8DF0EB%7D%26lang%3Den%26browser%3D3%26usagestats%3D0%26appname%3DGoogle%2520Chrome%26needsadmin%3Dtrue%26ap%3Dx64-stable-statsdef_1%26brand%3DGCEA/dl/chrome/install/googlechromestandaloneenterprise64.msi"
+        $OutputFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
+        Invoke-MSIFile -InstallFile $OutputFile -MSIParameters "/passive" -LogDirectory $InstallLogPath
+        #& msiexec /i $privdir\_down\googlechromestandaloneenterprise64.msi /passive /log $privdir\install_logs\chrome_install.log
     }
 
 
@@ -467,10 +468,9 @@ Function Install-WorkClient {
     #
     #https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US
     # https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options
-    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
-    Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $DownloadPath -Filename "firefox.exe"
+    Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $InstallRepoPath -Filename "firefox.exe"
     # STart installation as silent (-ms)
-    Start-Process -FilePath $(Join-Path -Path $DownloadPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
+    Start-Process -FilePath $(Join-Path -Path $InstallRepoPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
 
 
     $profilepath = $(Join-Path -Path $privdir -ChildPath "ff_profile")
@@ -500,10 +500,10 @@ Function Install-WorkClient {
     ########################################################
     # RSAT for windows 10. KB2693643
     # https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu
-    Save-FileOnURL -URL "https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu" -OutputPath $(Join-Path -Path $privdir -ChildPath "installrepo") -Filename "windows10_rsat.exe"
+    Save-FileOnURL -URL "https://download.microsoft.com/download/1/D/8/1D8B5022-5477-4B9A-8104-6A71FF9D98AB/WindowsTH-RSAT_WS2016-x64.msu" -OutputPath $InstallRepoPath -Filename "windows10_rsat.msu"
     $rsat = get-hotfix -Id KB2693643
     if(-not $rsat) {
-        Start-Process -FilePath C:\Windows\System32\wusa.exe -ArgumentList "$privdir\_down\WindowsTH-RSAT_WS2016-x64.msu /quiet /norestart /log:$privdir\install_logs\rsat_install.log" -WindowStyle Hidden -Wait
+        Start-Process -FilePath C:\Windows\System32\wusa.exe -ArgumentList "$(join-path -path $InstallRepoPath -ChildPath "windows10_rsat.msu") /quiet /norestart /log:$privdir\install_logs\rsat_install.log" -WindowStyle Hidden -Wait
         $RebootIt = $true
     }
 
@@ -526,8 +526,6 @@ Remove-Item -Path HKLM:\SOFTWARE\Policies\Google -Force -Recurse
 Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name "Driftinfo"
 '@
 
-
-Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -Name "Driftinfo"
 
 
     $LoginSCriptPath = "$privdir\scheduled_scripts\logon_script.ps1"
@@ -558,17 +556,16 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     # Sysinternals
     #
     #$SysinternalsAppDir = join-path -path $env:ProgramFiles -ChildPath "sysinternals"
-    $SysinternalsAppDir = join-path -path $privdir -ChildPath "tools\sysinternals"
-    Invoke-WebRequest -Uri "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutFile $privdir\_down\sysinternals.zip
-    Unblock-File -Path $privdir\_down\sysinternals.zip
+    $SysinternalsAppDir = join-path -path $ToolsPath -ChildPath "sysinternals"
+    $OutputFile = Save-FileOnURL -URL "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutputPath $InstallRepoPath
     remove-Item -Path $SysinternalsAppDir -Force
-    Expand-Archive -Path $privdir\_down\sysinternals.zip -DestinationPath $SysinternalsAppDir -Force
+    Expand-Archive -Path $OutputFile -DestinationPath $SysinternalsAppDir -Force
 
     & reg import .\customizations\sysinternals.reg
 
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
-    New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals"
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals ProcessExplorer"
 
     if($ReplaceTaskManager) {
 
@@ -715,7 +712,7 @@ cd shellsettings
     # installs in profile dir
     $DestinationPath = Join-Path -Path $env:APPDATA -ChildPath "AltDrag"
     $ExePath = Join-Path -Path $DestinationPath -ChildPath "altdrag.exe"
-    if($(Test-Path -Path $ExePath)) {    
+    if($(Test-Path -Path $ExePath)) {
         Add-CompatibilitySettings -ProgramPath $ExePath -CompatModes "HIGHDPIAWARE"
     }
 
@@ -729,9 +726,10 @@ cd shellsettings
     $release = $releasedata.assets | ? { ($_.Name -like 'Git*64-bit.exe') } | Sort-Object created_at -Descending | select -First 1
 
 
-    $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-    Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
-    Unblock-File -Path $downloadPath
+    $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+    #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
+    #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
+    #Unblock-File -Path $downloadPath
 
     $GitSettngsDir = $PSScriptRoot
     if(-not $GitSettngsDir) {
@@ -813,7 +811,7 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
 
     @("$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\Windows PowerShell\Windows PowerShell.lnk"
      ,"$($env:APPDATA)\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar\Windows PowerShell.lnk"
-     ) | ForEach-Object { 
+     ) | ForEach-Object {
         if( $(Test-Path -Path $_) ) {
             & $(Join-Path -Path $InstallPath -ChildPath "Update-Link.ps1") $_ dark
         }
@@ -831,14 +829,14 @@ if($GitPromptSettings) {
 } else {
     function prompt() { '$(Get-Date -f "yyyy-MM-dd HH:mm:ss") '+"PS $($executionContext.SessionState.Path.CurrentLocation)$('>' * ($nestedPromptLevel + 1)) "; }
 }
-'@ | Add-Content -Path $profile.CurrentUserAllHosts 
+'@ | Add-Content -Path $profile.CurrentUserAllHosts
 
 
     ########################################################
     # set explorer options
     # https://stackoverflow.com/questions/4491999/configure-windows-explorer-folder-options-through-powershell
     # https://superuser.com/questions/253249/windows-registry-entries-for-default-explorer-view
-            
+
     $ExplorerRegPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
     $ExplorerRegData = @(
         @{ RegKey = "Hidden"; Value = 1 }
@@ -930,12 +928,18 @@ if($GitPromptSettings) {
 
 
     ############################################################
+    #
     # beyond compare
-    Invoke-WebRequest -Uri https://www.scootersoftware.com/BCompare-3.3.13.18981.exe -UseBasicParsing -OutFile $privdir\_down\BCompare-3.3.13.18981.exe
-    Unblock-File -Path $privdir\_down\BCompare-3.3.13.18981.exe
+    #
+    $RequestBody=@{zz="dl4"; platform="win"}
+    $BCompareVersion = Invoke-WebRequest -Uri "https://www.scootersoftware.com/download.php" -UseBasicParsing -Method Post -Body $RequestBody  | select -ExpandProperty Links | ? { $_.href -match 'BCompare-[0-9].*' }
+    # by filtering on BCompare-[0-9] we should only get one version, the english one.
+    # but use [0] just in case...
+    $DownloadURL = "https://www.scootersoftware.com"+BCompareVersion[0].href
+    Write-Warning ("Downloading $DownloadURL")
+    $Outputfile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
 
-
-    $DestinationPath = join-path -path $privdir -childpath  "tools\BC4\"
+    $DestinationPath = join-path -path $ToolsPath -childpath  "BC4"
 
     # https://www.scootersoftware.com/vbulletin/showthread.php?15609-Unattended-install
     $BCompSEttingsDir = $PSScriptRoot
@@ -943,12 +947,14 @@ if($GitPromptSettings) {
         $BCompSEttingsDir = (Get-Location).Path
     }
     $BCompSettings = Join-Path -Path $BCompSEttingsDir -ChildPath "customizations\bcompare_setup.inf"
-    & $privdir\_down\BCompare-3.3.13.18981.exe /silent /loadinf="$BCompSettings"
+    # Start setup
+    & $OutputFile /silent /loadinf="$BCompSettings"
 
 
     $ExePath = Join-Path -Path $DestinationPath -ChildPath "BCompare.exe"
 
     # Add icon to start menu
+    # TODO: look up in registry where profile programs folder is located...
     New-ProgramShortcut -TargetPath $ExePath `
                         -WorkingDirectory $DestinationPath `
                         -IconPath "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\" -IconFileName "Beyond Compare"
@@ -1084,7 +1090,7 @@ data-product : vagrant
 
 
         # start npp to initialize configs
-        $NppProc = Start-Process -FilePath $(Join-Path -Path $NppInstallDir -ChildPath "Notepad++.exe") -PassThru -LoadUserProfile -WindowStyle Minimized 
+        $NppProc = Start-Process -FilePath $(Join-Path -Path $NppInstallDir -ChildPath "Notepad++.exe") -PassThru -LoadUserProfile -WindowStyle Minimized
         Start-Sleep 5
         # Close Npp gracefully to make it write config files etc.
         $NppProc.CloseMainWindow()
@@ -1096,7 +1102,7 @@ data-product : vagrant
 
         # copy settings
         Get-Content -Path  .\customizations\npp_config.xml.template -Raw | `
-            _Expand-VariablesInString -VariableMappings @{ 
+            _Expand-VariablesInString -VariableMappings @{
                 APPDATA = $env:APPDATA;
             } | `
             Set-Content -Path $(join-path -Path $env:APPDATA -ChildPath "\Notepad++\config.xml")
@@ -1121,11 +1127,11 @@ data-product : vagrant
         # "132" seems to be 4 spaces and override default
         $NppLangFile =  $(Join-Path -Path $env:APPDATA -ChildPath "Notepad++\langs.xml")
         [xml]$NppLangData = get-content -Path $NppLangFile
-        
+
         $NppTabSetting = "132"
         $NppLangs=@('python','bash','json','xml')
         $NppLangs | ForEach-Object {
-            
+
             $LangNode = $NppLangData.NotepadPlus.Languages.SelectNodes("Language[@name=`"$_`"]")
             if($LangNode) {
                 # use index 0 here because returned object is XPathNodeList
@@ -1149,14 +1155,14 @@ data-product : vagrant
         $NppPluginsUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath "nppplugins")
         Invoke-WebRequest -Uri $NppPluginListURL -OutFile $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip")
         Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip") -DestinationPath $NppPluginsUnzipDir -Verbose
-        [xml]$NppPluginList = Get-Content -Path $(Join-Path -Path $NppPluginsUnzipDir -ChildPath "PluginManagerPlugins.xml") 
+        [xml]$NppPluginList = Get-Content -Path $(Join-Path -Path $NppPluginsUnzipDir -ChildPath "PluginManagerPlugins.xml")
 
-    
+
         # these must match name name in PlugManagerPlugins.xml
         #$NppPluginsToInstall=@('XML Tools','Tidy2','HTML Tag','JSON Viewer')
         $NppPluginsToInstall=@('XML Tools')
         $NppPluginsToInstall | ForEach-Object {
-        
+
             $InstallPLugin = $_
             $NppPlugin = $NppPluginList.SelectNodes("//plugin[@name=`"$InstallPLugin`"]")
             $PluginDownloadPath = $(Join-Path -Path $InstallrepoPath -ChildPath "$([guid]::NewGuid()).zip")
@@ -1171,7 +1177,7 @@ data-product : vagrant
                 $resp.content -match "<meta http-equiv.*refresh.*" | Out-Null
                 $DownloadURL = ($Matches.Values -split '.*url=(.*)">')[1]
                 if($DownloadURL) {
-                    
+
                 }
             }
 
@@ -1182,10 +1188,10 @@ data-product : vagrant
         }
 
 
-        
+
 
         $NppLangs | ForEach-Object {
-            
+
             $LangNode = $NppLangData.NotepadPlus.Languages.SelectNodes("Language[@name=`"$_`"]")
             if($LangNode) {
                 # use index 0 here because returned object is XPathNodeList
@@ -1198,7 +1204,7 @@ data-product : vagrant
 
 
         <#
-        
+
         $NppPlugins=@{
             XMLTOOLS=@{
                 Name="XmlTools";
@@ -1257,16 +1263,25 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     # OpenVPN
     #
     #Invoke-WebRequest -Uri 'https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.17-I601-x86_64.exe' -UseBasicParsing -OutFile $privdir\_down\openvpn-install-2.3.17-I601-x86_64.exe
-    Invoke-WebRequest -Uri 'https://swupdate.openvpn.org/community/releases/openvpn-install-2.4.3-I602.exe' -UseBasicParsing -OutFile $privdir\_down\openvpn-install-2.4.3-I602.exe
-    Unblock-File -Path $privdir\_down\openvpn-install-2.4.3-I602.exe
+    #https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.18-I602-x86_64.exe
+    #https://swupdate.openvpn.org/community/releases/openvpn-install-2.4.6-I602.exe
 
+    # Try and find the latest openvpn installer.
+    <#
+    href
+    https://swupdate.openvpn.org/community/releases/openvpn-install-2.4.6-I602.exe
+    https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.18-I602-i686.exe
+    https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.18-I602-x86_64.exe
+    #>
+    $DownloadURL = Invoke-WebRequest -Uri "https://openvpn.net/index.php/open-source/downloads.html" -UseBasicParsing  | select -ExpandProperty Links | ? { $_.href -like 'https://*/releases/openvpn*.exe' } | Sort-Object href | select -first 1 href
+
+    $OutputFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
     Import-Certificate -FilePath .\customizations\openssl_tap.pem -CertStoreLocation "Cert:\LocalMachine\TrustedPublisher"
-
 
     #https://justcheckingonall.wordpress.com/2013/03/11/command-line-installation-of-openvpn/
     #https://b3it.blogspot.se/2014/06/openvpn-silent-intall-and-kaseya.html
 
-    Start-Process -FilePath "$privdir\_down\openvpn-install-2.4.3-I602.exe" `
+    Start-Process -FilePath $OutputFile `
         -ArgumentList "/S /SELECT_SHORTCUTS=0 /SELECT_OPENVPN=1 /SELECT_SERVICE=1 /SELECT_TAP=1 /SELECT_OPENVPNGUI=1 /SELECT_ASSOCIATIONS=0 /SELECT_OPENSSL_UTILITIES=0 /SELECT_EASYRSA=0 /SELECT_PATH=1 /SELECT_OPENSSLDLLS=1 /SELECT_LZODLLS=1 /SELECT_PKCS11DLLS=1" `
         -NoNewWindow -Wait
 
@@ -1603,7 +1618,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
         }
 
 
-    
+
     } else {
         Write-Warning "apm.cmd was not found!"
     }
