@@ -1363,9 +1363,26 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     $Package = $(Get-Package | ? { $_.Name -like 'Wireshark*'} )
     if(-not $Package) {
-        $OutputFile = Save-FileOnURL -URL "https://1.na.dl.wireshark.org/win64/Wireshark-win64-2.4.6.exe" -OutputPath $InstallRepoPath
+        <#
+        g_string_printf(update_url_str, "https://www.wireshark.org/%s/%u/%s/%s/%s/%s/en-US/%s.xml",
+                         SU_SCHEMA_PREFIX,
+                         SU_SCHEMA_VERSION,
+                         SU_APPLICATION,
+                         VERSION,
+                         SU_OSNAME,
+                         arch,
+                         chan_name);
 
-        # install
+     https://www.wireshark.org/update/0/Wireshark/2.4.3/Windows/x86-64/en-US/stable.xml
+        #>
+        $SimulateWiresharkVersion="2.4.3"
+        $WiresharkVersionURL="https://www.wireshark.org/update/0/Wireshark/{0}/Windows/x86-64/en-US/stable.xml" -f $SimulateWiresharkVersion
+        [xml]$WiresharkVersionInfo = invoke-webrequest -Uri $WiresharkVersionURL -UseBasicParsing -DisableKeepAlive | select -ExpandProperty Content
+
+        $OutputFile = Save-FileOnURL -URL $WiresharkVersionInfo.rss.channel.item.enclosure.url -OutputPath $InstallRepoPath
+
+        # WinPcap does not install when running silently, so skip exploring that option for now
+        & $OutputFile
     }
 
 
