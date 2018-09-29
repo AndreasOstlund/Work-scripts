@@ -1612,6 +1612,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
                         ,'git-plus'
                         ,'block-cursor'
                         ,'file-types'
+                        ,'language-batchfile'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
