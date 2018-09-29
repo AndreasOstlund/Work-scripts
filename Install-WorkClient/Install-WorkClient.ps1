@@ -705,8 +705,10 @@ cd shellsettings
     $releasedata = $response.content | ConvertFrom-Json
     $release = $releasedata.assets | ? { ($_.Name -like 'AltDrag*.exe') } | Sort-Object created_at -Descending | select -First 1
     $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-    Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
-    Unblock-File -Path $downloadPath
+    $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+
+    # Install
+    & $OutputFile
 
     #TODO: Silent install
     # installs in profile dir
@@ -1361,8 +1363,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     $Package = $(Get-Package | ? { $_.Name -like 'Wireshark*'} )
     if(-not $Package) {
-        Invoke-WebRequest -Uri 'https://1.na.dl.wireshark.org/win64/Wireshark-win64-2.4.6.exe' -UseBasicParsing -OutFile "$privdir\_down\Wireshark-win64-2.4.6.exe"
-        Unblock-File -Path "$privdir\_down\Wireshark-win64-2.4.6.exe"
+        $OutputFile = Save-FileOnURL -URL "https://1.na.dl.wireshark.org/win64/Wireshark-win64-2.4.6.exe" -OutputPath $InstallRepoPath
 
         # install
     }
@@ -1373,11 +1374,10 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     # SoapUI
     #
     # http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe
-    Invoke-WebRequest -Uri 'http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe' -UseBasicParsing -OutFile "$privdir\_down\SoapUI-x64-5.2.1.exe"
-    Unblock-File -Path "$privdir\_down\SoapUI-x64-5.2.1.exe"
+    $OutputFile = Save-FileOnURL -URL "http://smartbearsoftware.com/distrib/soapui/5.2.1/SoapUI-x64-5.2.1.exe" -OutputPath $InstallRepoPath
 
     # https://community.smartbear.com/t5/SoapUI-Open-Source/Silent-Install-Option/td-p/10921
-    Start-Process -FilePath "$privdir\_down\SoapUI-x64-5.2.1.exe" -ArgumentList "-q" -NoNewWindow -Wait
+    Start-Process -FilePath $OutputFile -ArgumentList "-q" -NoNewWindow -Wait
 
     # Fix DPI scaling
     # https://stackoverflow.com/questions/36709583/soapui-on-windows-10-high-dpi-4k-scaling-issue
@@ -1392,7 +1392,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     if($exefile) {
         $ManifestFile = "${exefile}.manifest"
     }
-    $ManifestContents = @'
+
+    @'
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
     <description>SoapUI</description>
@@ -1411,9 +1412,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
         </asmv3:windowsSettings>
     </asmv3:application>
 </assembly>
-'@
-
-    $ManifestContents | Set-Content -Path $ManifestFile -Encoding UTF8 -Force
+'@ [ Set-Content -Path $ManifestFile -Encoding UTF8 -Force
 
 
 
