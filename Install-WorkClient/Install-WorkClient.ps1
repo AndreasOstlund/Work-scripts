@@ -1629,6 +1629,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
                         ,'block-cursor'
                         ,'file-types'
                         ,'language-batchfile'
+                        ,'minimap'
+                        ,'minimap-highlight-selected'
                     )
         $AtomPackages | Foreach-Object {
             & $APMPath install $_
@@ -1815,6 +1817,12 @@ EOF
 
 
 cat <<'EOF' >>~/.bashrc
+settitle() {
+    title=$1
+    [ -z "$title" ] && title="bash"
+    printf "\033k$title\033\\"
+}
+
 if [ -f "${HOME}/.bash_aliases" ]; then
   source "${HOME}/.bash_aliases"
 fi
