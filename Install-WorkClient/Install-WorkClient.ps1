@@ -701,21 +701,22 @@ cd shellsettings
     #
     # AltDrag
     #
-    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/stefansundin/altdrag/releases/latest" -UseBasicParsing
-    $releasedata = $response.content | ConvertFrom-Json
-    $release = $releasedata.assets | ? { ($_.Name -like 'AltDrag*.exe') } | Sort-Object created_at -Descending | select -First 1
-    $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-    $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+    $reldata = Get-GitHubProjectLatestRelease -Project "stefansundin/altdrag"  -FileNameMatch 'AltDrag*'
+    if($reldata.browser_download_url) {
+        $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
 
-    # Install
-    & $OutputFile
+        # Install
+        & $OutputFile
 
-    #TODO: Silent install
-    # installs in profile dir
-    $DestinationPath = Join-Path -Path $env:APPDATA -ChildPath "AltDrag"
-    $ExePath = Join-Path -Path $DestinationPath -ChildPath "altdrag.exe"
-    if($(Test-Path -Path $ExePath)) {
-        Add-CompatibilitySettings -ProgramPath $ExePath -CompatModes "HIGHDPIAWARE"
+        #TODO: Silent install
+        # installs in profile dir
+        $DestinationPath = Join-Path -Path $env:APPDATA -ChildPath "AltDrag"
+        $ExePath = Join-Path -Path $DestinationPath -ChildPath "altdrag.exe"
+        if($(Test-Path -Path $ExePath)) {
+            Add-CompatibilitySettings -ProgramPath $ExePath -CompatModes "HIGHDPIAWARE"
+        }
+    } else {
+        Write-Warning "Could not get URL for AltDrag"
     }
 
 
@@ -723,46 +724,24 @@ cd shellsettings
     #
     # git for windows
     #
-    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing
-    $releasedata = $response.content | ConvertFrom-Json
-    $release = $releasedata.assets | ? { ($_.Name -like 'Git*64-bit.exe') } | Sort-Object created_at -Descending | select -First 1
+    $reldata = Get-GitHubProjectLatestRelease -Project "git-for-windows/git"  -FileNameMatch 'Git*64-bit.exe'
+    if($reldata.browser_download_url) {
+        $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+        #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
+        #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
+        #Unblock-File -Path $downloadPath
+
+        $GitSettngsDir = $PSScriptRoot
+        if(-not $GitSettngsDir) {
+            $GitSettngsDir = (Get-Location).Path
+        }
+        $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
 
 
-    $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
-    #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-    #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
-    #Unblock-File -Path $downloadPath
-
-    $GitSettngsDir = $PSScriptRoot
-    if(-not $GitSettngsDir) {
-        $GitSettngsDir = (Get-Location).Path
+        Start-Process -FilePath $DownloadPath `
+        -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
+        -NoNewWindow -Wait
     }
-    $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
-
-
-    Start-Process -FilePath $DownloadPath `
-    -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
-    -NoNewWindow -Wait
-
-
-
-         <#
-    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/git-for-windows/git/releases/latest" -UseBasicParsing
-    $releasedata = $response.content | ConvertFrom-Json
-    $release = $releasedata.assets | ? { ($_.Name -like 'MinGit*64-bit.zip') -and ($_.Name -notlike '*busybox*')  } | Sort-Object created_at -Descending | select -First 1
-
-
-    $downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-    Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
-    Unblock-File -Path $downloadPath
-
-    Expand-Archive -Path $privdir\_down\$($release.name) -DestinationPath  $PrivDir\tools\MinGit
-    [environment]::SetEnvironmentVariable("Path",$env:Path+"$privdir\tools\MinGit\cmd",[System.EnvironmentVariableTarget]::Machine)
-
-    #$releasedata.assets | Sort-Object created_at -Descending | select Name, created_at
-         #>
-
-
 
 
 
