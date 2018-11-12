@@ -1792,6 +1792,7 @@ mkdir ~/.virtualenvs
 
 cat <<'EOF' >>~/.bash_aliases
 alias gitbranch='git branch -vv -a'
+alias gits='git status'
 EOF
 
 
