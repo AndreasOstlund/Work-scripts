@@ -10,13 +10,14 @@ $TopLevelProcs = $AtomProcs | ? { $_.Name -eq "atom.exe" } | ForEach-Object {
 
 $TopLevelProcs
 
-$HandleBin = ".\handle64.exe"
-$PathPattern = "directory\\directory2\\"
+$HandleBin = "$env:AO_HOME\tools\sysinternals\handle64.exe"
+$PathPattern = "M3Ops\\Multi-Tenant\\scripts\\"
 & $HandleBin -a -p atom | Select-String -Pattern $PathPattern | `
-    ForEach-Object { 
+    ForEach-Object {
+        Write-Warning $_.Line.ToString()
         $AA=[regex]::split($_.Line.ToString(),'(.*): File.*')
         $Handle=$AA[1].replace(' ','')
-        & $HandleBin -c $Handle -y -p 11860
+        & $HandleBin -c $Handle -y -p $TopLevelProcs.ProcessId
     }
 
 
