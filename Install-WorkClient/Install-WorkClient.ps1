@@ -916,7 +916,7 @@ if($GitPromptSettings) {
     $BCompareVersion = Invoke-WebRequest -Uri "https://www.scootersoftware.com/download.php" -UseBasicParsing -Method Post -Body $RequestBody  | select -ExpandProperty Links | ? { $_.href -match 'BCompare-[0-9].*' }
     # by filtering on BCompare-[0-9] we should only get one version, the english one.
     # but use [0] just in case...
-    $DownloadURL = "https://www.scootersoftware.com"+BCompareVersion[0].href
+    $DownloadURL = "https://www.scootersoftware.com"+$BCompareVersion[0].href
     Write-Warning ("Downloading $DownloadURL")
     $Outputfile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
 
@@ -1408,7 +1408,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
         </asmv3:windowsSettings>
     </asmv3:application>
 </assembly>
-'@ [ Set-Content -Path $ManifestFile -Encoding UTF8 -Force
+'@ | Set-Content -Path $ManifestFile -Encoding UTF8 -Force
 
 
 
@@ -2019,6 +2019,27 @@ outerHTML                                                                       
     #
 
     # https://dl.pstmn.io/download/latest/win64
+
+
+    #############################################
+    #
+    # Python for windows
+    #
+    $DownloadURL="https://www.python.org/ftp/python/2.7.15/python-2.7.15.amd64.msi"
+    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
+    $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python27")
+
+    Invoke-MSIFile -InstallFile $LocalFileName -MSIParameters ("TARGETDIR=`"{0}`"" -f $InstallDir)
+
+    & $InstallDir\python.exe  -m pip install --upgrade pip
+
+    $PythonScriptDir=Join-Path -Path $InstallDir -ChildPath "Scripts"
+
+    # global packages
+    "pylint","virtualenvwrapper" | ForEach-Object {
+        & $PythonScriptDir\pip install $_
+    }
+
 
     #############################################
     #
