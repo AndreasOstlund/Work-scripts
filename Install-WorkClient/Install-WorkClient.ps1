@@ -828,7 +828,8 @@ if($GitPromptSettings) {
         ,@{ RegKey = "AutoCheckSelect"; Value = 0 }
         ,@{ RegKey = "TaskbarAnimations"; Value = 0 }
         ,@{ RegKey = "TaskbarSmallIcons"; Value = 1 }
-        ,@{ RegKey = "DisallowShaking "; Value = 1 }
+        ,@{ RegKey = "DisallowShaking"; Value = 1 }
+        ,@{ RegKey = "DisablePreviewDesktop"; Value = 0 }
     )
 
     $ExplorerRegData | ForEach-Object {
@@ -1416,7 +1417,13 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
 
 
     #######################################################
+    #
     # MS SQL Management Studio 2016
+    #
+    Invoke-WebRequest -Uri "https://download.microsoft.com/download/0/D/2/0D26856F-E602-4FB6-8F12-43D2559BDFE4/SSMS-Setup-ENU.exe" -OutFile "SSMS-Setup-ENU.EXE"
+    & .\sql01\SSMS-Setup-ENU.EXE /install /quiet /norestart
+
+    <#
     # $CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe /?
     $Package = $(get-package -name "SQL Server 2016 Management Studio" -providername msi)
     if(-not $package) {
@@ -1425,7 +1432,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     } else {
         Write-Warning "Not installing SQL management studio, it appears installed already."
     }
-
+    #>
 
 
 
@@ -1791,7 +1798,7 @@ mkdir ~/.virtualenvs
 
 
 cat <<'EOF' >>~/.bash_aliases
-alias gitbranch='git branch -vv -a'
+#alias gitbranch='git branch -vv -a'
 alias gits='git status'
 EOF
 
@@ -1802,6 +1809,16 @@ settitle() {
     [ -z "$title" ] && title="bash"
     printf "\033k$title\033\\"
 }
+
+gitbranch() {
+    [ -z $1 ] && git branch -vv -a || git branch -vv -a | grep -i $1
+}
+settitle () {
+    title=$1;
+    [ -z "$title" ] && title="bash";
+    printf "\033k$title\033\\"
+}
+
 
 if [ -f "${HOME}/.bash_aliases" ]; then
   source "${HOME}/.bash_aliases"
@@ -2023,7 +2040,7 @@ outerHTML                                                                       
 
     #############################################
     #
-    # Python for windows
+    # Python 2 for windows
     #
     $DownloadURL="https://www.python.org/ftp/python/2.7.15/python-2.7.15.amd64.msi"
     $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
@@ -2039,6 +2056,25 @@ outerHTML                                                                       
     "pylint","virtualenvwrapper" | ForEach-Object {
         & $PythonScriptDir\pip install $_
     }
+
+
+    #############################################
+    #
+    # Python 3 for windows
+    #
+    # https://docs.python.org/3/using/windows.html
+    #
+    $DownloadURL="https://www.python.org/ftp/python/3.7.1/python-3.7.1-amd64.exe"
+    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
+    $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python3")
+
+    Start-Process -FilePath $LocalFileName  -Wait -NoNewWindow `
+        -ArgumentList @("TargetDir=`"$InstallDir`""
+                       ,"AssociateFiles=0"
+                       ,"InstallLauncherAllUsers=0"
+                       ,"/passive"
+                       )
+
 
 
     #############################################
