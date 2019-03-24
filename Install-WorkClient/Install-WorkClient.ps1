@@ -701,9 +701,9 @@ cd shellsettings
     #
     # AltDrag
     #
-    $reldata = Get-GitHubProjectLatestRelease -Project "stefansundin/altdrag"  -FileNameMatch 'AltDrag*'
+    $reldata = Get-GitHubProjectLatestRelease -Project "stefansundin/altdrag"  -FileNameMatch 'AltDrag*.exe'
     if($reldata.browser_download_url) {
-        $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
 
         # Install
         & $OutputFile
@@ -726,7 +726,7 @@ cd shellsettings
     #
     $reldata = Get-GitHubProjectLatestRelease -Project "git-for-windows/git"  -FileNameMatch 'Git*64-bit.exe'
     if($reldata.browser_download_url) {
-        $OutputFile = Save-FileOnURL -URL $release.browser_download_url -OutputPath $InstallRepoPath
+        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
         #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
         #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
         #Unblock-File -Path $downloadPath
@@ -738,7 +738,7 @@ cd shellsettings
         $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
 
 
-        Start-Process -FilePath $DownloadPath `
+        Start-Process -FilePath $OutputFile `
         -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
         -NoNewWindow -Wait
     }
@@ -1135,41 +1135,48 @@ data-product : vagrant
 
         $NppPluginListURL="https://nppxml.bruderste.in/pm/xml/plugins.zip"
         $NppPluginsUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath "nppplugins")
-        Invoke-WebRequest -Uri $NppPluginListURL -OutFile $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip")
-        Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "nppplugins.zip") -DestinationPath $NppPluginsUnzipDir -Verbose
+        if( $(Test-Path -Path $NppPluginsUnzipDir) ) { rmdir $NppPluginsUnzipDir -Recurse -Verbose }
+        $DownloadedFile = Save-FileOnURL -URL $NppPluginListURL -OutputPath $InstallRepoPath -Filename "nppplugins.zip"
+        Expand-Archive -Path $DownloadedFile -DestinationPath $NppPluginsUnzipDir -Verbose
         [xml]$NppPluginList = Get-Content -Path $(Join-Path -Path $NppPluginsUnzipDir -ChildPath "PluginManagerPlugins.xml")
 
 
         # these must match name name in PlugManagerPlugins.xml
-        #$NppPluginsToInstall=@('XML Tools','Tidy2','HTML Tag','JSON Viewer')
-        $NppPluginsToInstall=@('XML Tools')
+        $NppPluginsToInstall=@('XML Tools','Tidy2','HTML Tag','JSON Viewer')
         $NppPluginsToInstall | ForEach-Object {
 
             $InstallPLugin = $_
             $NppPlugin = $NppPluginList.SelectNodes("//plugin[@name=`"$InstallPLugin`"]")
-            $PluginDownloadPath = $(Join-Path -Path $InstallrepoPath -ChildPath "$([guid]::NewGuid()).zip")
+            $PluginDownloadFileName = ("{0}.zip" -f [guid]::NewGuid()) 
             $PluginUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath ([guid]::NewGuid()))
 
-            #Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -OutFile $PluginDownloadPath
-            $RespHeaders = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -Method Head
-            if($RespHeaders.Headers.'Content-Type' -like '*text/html*') {
-                Write-Warning "Download URL returned text/html. trying to find meta http-equiv=refresh"
+            Write-Debug ("NppPlugin={0} | DownloadPath={1} | Unzipdir={2}" -f $NppPlugin,$PluginDownloadFileName,$PluginUnzipDir) -Debug:$TRue
 
-                $resp = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -UseBasicParsing
-                $resp.content -match "<meta http-equiv.*refresh.*" | Out-Null
-                $DownloadURL = ($Matches.Values -split '.*url=(.*)">')[1]
-                if($DownloadURL) {
+            throw "sdf"
 
+            # the HEAD request might return forbidden, so wrap this in try/catch
+            try {
+                $RespHeaders = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -Method Head
+
+                if($RespHeaders.Headers.'Content-Type' -like '*text/html*') {
+                    Write-Warning "Download URL returned text/html. trying to find meta http-equiv=refresh"
+
+                    $resp = Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -UseBasicParsing
+                    $resp.content -match "<meta http-equiv.*refresh.*" | Out-Null
+                    $DownloadURL = ($Matches.Values -split '.*url=(.*)">')[1]
+                    if($DownloadURL) {
+                        #Invoke-WebRequest -Uri $NppPlugin[0].install.unicode.download -OutFile $PluginDownloadPath
+                    }
                 }
+            } catch {
+                Write-Warning ("Not able to HEAD {0}`r`n{1}" -f $NppPlugin[0].install.unicode.download, $_.Exception.Message)
+
+                # if something went wrong with the HEAD request and download from meta refresh, then try and just get the URL
+                $DownloadedFile = Save-FileOnURL -URL $NppPlugin[0].install.unicode.download -OutputPath $InstallRepoPath -Filename $PluginDownloadFileName
             }
 
-            Throw "sdf"
-            Expand-Archive -Path $PluginDownloadPath -DestinationPath  $PluginUnzipDir -Verbose
-
-
+            Expand-Archive -Path $DownloadedFile -DestinationPath  $PluginUnzipDir -Verbose
         }
-
-
 
 
         $NppLangs | ForEach-Object {
@@ -1255,7 +1262,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.18-I602-i686.exe
     https://swupdate.openvpn.org/community/releases/openvpn-install-2.3.18-I602-x86_64.exe
     #>
-    $DownloadURL = Invoke-WebRequest -Uri "https://openvpn.net/index.php/open-source/downloads.html" -UseBasicParsing  | select -ExpandProperty Links | ? { $_.href -like 'https://*/releases/openvpn*.exe' } | Sort-Object href | select -first 1 href
+    $DownloadURL = Invoke-WebRequest -Uri "https://openvpn.net/index.php/open-source/downloads.html" -UseBasicParsing  | select -ExpandProperty Links | ? { $_.href -like 'https://*/releases/openvpn*.exe' } | Sort-Object href | select -first 1 href -ExpandProperty href
 
     $OutputFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
     Import-Certificate -FilePath .\customizations\openssl_tap.pem -CertStoreLocation "Cert:\LocalMachine\TrustedPublisher"
@@ -1420,8 +1427,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     # MS SQL Management Studio 2016
     #
-    Invoke-WebRequest -Uri "https://download.microsoft.com/download/0/D/2/0D26856F-E602-4FB6-8F12-43D2559BDFE4/SSMS-Setup-ENU.exe" -OutFile "SSMS-Setup-ENU.EXE"
-    & .\sql01\SSMS-Setup-ENU.EXE /install /quiet /norestart
+    $DownloadedFile = Save-FileOnURL -URL "https://download.microsoft.com/download/0/D/2/0D26856F-E602-4FB6-8F12-43D2559BDFE4/SSMS-Setup-ENU.exe" -OutputPath $InstallRepoPath -Filename "SSMS-Setup-ENU.EXE"
+    Start-Process -FilePath $DownloadedFile -ArgumentList "/install /quiet /norestart"
 
     <#
     # $CorpRepo\Program_Licens\Microsoft en\SQL Server\SQL Server 2016 Enterprise Core 64 bit\Management Studio MS SQL 2016\SSMS-Setup-ENU.exe /?
@@ -1503,10 +1510,10 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     ###############################################
     # Visual studio code
     # https://github.com/Microsoft/vscode/archive/1.16.1.zip
-    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
-    Save-FileOnURL -URL "https://go.microsoft.com/fwlink/?Linkid=850641"  -OutputPath $OutputPath -Filename "vSCode_latest.zip"
+    $OutputPath = $InstallRepoPath
+    $DownloadedFile = Save-FileOnURL -URL "https://go.microsoft.com/fwlink/?Linkid=850641"  -OutputPath $OutputPath -Filename "vSCode_latest.zip"
 
-    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "vSCode_latest.zip") -DestinationPath $(Join-Path -Path $privdir -ChildPath "tools\VSCode") -Force
+    Expand-Archive -Path $DownloadedFile -DestinationPath $(Join-Path -Path $ToolsPath -ChildPath "VSCode") -Force
 
     #https://stackoverflow.com/questions/34286515/how-to-install-visual-studio-code-extensions-from-command-line
     #donjayamanne.python
@@ -1548,7 +1555,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     # Atom editor
     #
     # https://github.com/atom/atom/releases/download/v1.21.0/atom-x64-windows.zip
-    $OutputPath = $(Join-Path -Path $privdir -ChildPath "installrepo")
+    $OutputPath = $InstallRepoPath
 
     $AtomDownloadURL = Get-GitHubProjectLatestRelease -Project "atom/atom" -FileNameMatch "atom-x64-windows.zip" -ReturnProperty "browser_download_url"
 
@@ -1557,11 +1564,11 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     }
 
     #Save-FileOnURL -URL "https://github.com/atom/atom/releases/download/v1.25.1/atom-x64-windows.zip"  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
-    Save-FileOnURL -URL $AtomDownloadURL  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
+    $DownloadedFile = Save-FileOnURL -URL $AtomDownloadURL  -OutputPath $OutputPath -Filename "atom-x64-windows.zip"
 
 
     $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\Atom")
-    Expand-Archive -Path $(Join-Path -Path $OutputPath -ChildPath "atom-x64-windows.zip") -DestinationPath $DestinationPath -Force
+    Expand-Archive -Path $DownloadedFile -DestinationPath $DestinationPath -Force
     if( $(Test-Path -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64") ) ) {
         Move-Item -Path $(Join-Path -Path $DestinationPath -ChildPath "Atom x64\*") -Destination $DestinationPath
     }
@@ -1690,11 +1697,11 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     # Remote desktop connection manager
     #
     $DownloadURL = "https://download.microsoft.com/download/A/F/0/AF0071F3-B198-4A35-AA90-C68D103BDCCF/rdcman.msi"
-    $DownloadPath = Join-Path -Path $privdir -ChildPath "installrepo"
+    $DownloadPath = $InstallRepoPath
 
-    Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "rdcman.msi"
+    $DownloadedFile = Save-FileOnURL -URL $DownloadURL -OutputPath $DownloadPath -Filename "rdcman.msi"
 
-    & msiexec /i $(join-path -Path $DownloadPath -ChildPath "rdcman.msi") /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\rdcman.log")
+    & msiexec /i $DownloadedFile /norestart /passive /log $(join-path -Path $privdir -ChildPath "install_logs\rdcman.log")
 
 
     ###############################################
@@ -1725,20 +1732,32 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     #TODO: automate cygwin install from a list of packages
 
     $DownloadURL = "http://www.cygwin.com/setup-x86_64.exe"
-    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "setup-x86_64.exe"
+    $DownloadedFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "setup-x86_64.exe"
 
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\pkg")
     mkdir $(Join-Path -Path $privdir -ChildPath "tools\cygwin\current")
 
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --download --site http://cygwin.uib.no --local-package-dir c:\ao\tools\cygwin\pkg --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip,procps-ng,xmlsec1
-    #D:\users\aostlund\ao\installrepo\setup-x86_64.exe --quiet-mode --local-install --local-package-dir c:\ao\tools\cygwin\pkg --root  D:\users\aostlund\ao\tools\cygwin\current --packages rxvt,wget,openssl,mc,nc,ncftp,vim,curl,links,lynx,arj,unzip,ascii,attr,corkscrew,fdupes,hexedit,lftp,lv,mintty,openldap,bind-utils,ca-certificates,rpm,mysql-client,joe,cpio,ddrescue,mkisofs,screen,wodim,md5deep,openssh,ping,inetutils,whois,binutils,util-linux,rsync,httping,dos2unix,sharutils,xxd,git,bash-completion,python,python-setuptools,tmux,pv,gnupg,zip,procps-ng,xmlsec1
-
-
-
+    $InstallPath = Join-Path -Path $ToolsPath -ChildPath "cygwin\current"
+    $PkgPath = Join-Path -Path $ToolsPath -ChildPath "cygwin\pkg"
+    
+    $CygwinPackages=@(
+        "rxvt","wget","openssl","mc","nc","ncftp","vim",
+        "curl","links","lynx","arj","unzip","ascii","attr",
+        "corkscrew","fdupes","hexedit","lftp","lv","mintty",
+        "openldap","bind-utils","ca-certificates","rpm",
+        "mysql-client","joe","cpio","ddrescue","mkisofs",
+        "screen","wodim","md5deep","openssh","ping","inetutils",
+        "whois","binutils","util-linux","rsync","httping",
+        "dos2unix","sharutils","xxd","git","bash-completion",
+        "python","python-setuptools","tmux","pv","gnupg","zip",
+        "procps-ng","xmlsec1","jq","python3"
+    )
+    & $DownloadedFile --quiet-mode --download --site http://cygwin.uib.no --local-package-dir $PkgPath --packages $($CygwinPackages -join ",")
+    & $DownloadedFile --quiet-mode --local-install --local-package-dir $PkgPath --root  $InstallPath --packages  $($CygwinPackages -join ",")
 
     $InitScript=@'
 cd ~
-ln -s /cygdrive/%CYGPRIVDIR% store
+ln -s %CYGPRIVDIR% local
 git clone https://github.com/Winterlabs/shellsettings
 
 # bash-git-prompt
@@ -1774,7 +1793,7 @@ python get-pip.py
 
 # AWS cli
 pip install awscli
-ln -s /cygdrive/%WINHOMEAWSDIR% ~/.aws
+ln -s %WINHOMEAWSDIR% ~/.aws
 
 # pyserve
 pip install pyserve
@@ -1848,7 +1867,7 @@ fi
 
 # run stuff when executed from TMUX
 if [[ $TMUX ]]; then
-    cd ~/store/
+    cd ~/local/
 fi
 
 export WORKON_HOME=$HOME/.virtualenvs
@@ -1860,8 +1879,6 @@ EOF
 export WORKON_HOME=$HOME/.virtualenvs
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 source /usr/bin/virtualenvwrapper.sh
-
-
 '@
 
 
@@ -1869,7 +1886,7 @@ source /usr/bin/virtualenvwrapper.sh
         WINHOMEAWSDIR = ConvertTo-CygwinPath -Path  $(Join-Path -Path $(join-path -path $env:HOMEDRIVE -childpath $env:HOMEPATH) -childpath ".aws")
         CYGPRIVDIR = ConvertTo-CygwinPath -Path $privdir
 
-    }).replace("`r`n","`n") | Set-Content -Path $(Join-Path -Path $CygwinInstallPath -ChildPath "home\init.sh") -Encoding UTF8 -NoNewline
+    }).replace("`r`n","`n") | Set-Content -Path $(Join-Path -Path $InstallPath -ChildPath "home\init.sh") -Encoding UTF8 -NoNewline
 
 
     #############################################
@@ -1977,14 +1994,15 @@ source /usr/bin/virtualenvwrapper.sh
     #
     # KeepassXC
     #
-    #https://github.com/keepassxreboot/keepassxc/releases/download/2.3.1/KeePassXC-2.3.1-Win64-Portable.zip
     $DownloadURL = Get-GitHubProjectLatestRelease -Project "keepassxreboot/keepassxc" -FileNameMatch "KeePassXC*Win64-Portable.zip" -ReturnProperty "browser_download_url"
-    Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "KeepassXC_latest.zip"
+    $DownloadedFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath -Filename "KeepassXC_latest.zip"
 
-    $DestinationPath = $(Join-Path -Path $privdir -ChildPath "tools\KeePassXC")
-    Expand-Archive -Path $(Join-Path -Path $InstallrepoPath -ChildPath "KeepassXC_latest.zip") -DestinationPath $DestinationPath -Force
+    $DestinationPath = $(Join-Path -Path $ToolsPath -ChildPath "KeePassXC")
+    Expand-Archive -Path $DownloadedFile -DestinationPath $DestinationPath -Force
 
     # TODO: Fix that keepass unzips into a subfolder
+
+    copy .\customizations\keepassxc.ini $DestinationPath -Verbose
 
 
 
@@ -2119,6 +2137,7 @@ outerHTML                                                                       
     #>
 }
 
+_Disable-CertificateVerification
 $privdir = Read-Host -Prompt "Privdir"
 $crepo = Read-Host -Prompt "Corp repo"
 
