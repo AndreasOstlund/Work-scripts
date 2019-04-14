@@ -401,7 +401,7 @@ Function Install-WorkClient {
     #
     # AWS CLI for windows
     #
-    Save-FileOnURL -URL "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi" -OutputPath $InstallrepoPath
+    $DownloadedFile = Save-FileOnURL -URL "https://s3.amazonaws.com/aws-cli/AWSCLI64PY3.msi" -OutputPath $InstallrepoPath
 
     ########################################
     #
@@ -468,9 +468,9 @@ Function Install-WorkClient {
     #
     #https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US
     # https://developer.mozilla.org/en-US/docs/Mozilla/Command_Line_Options
-    Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $InstallRepoPath -Filename "firefox.exe"
+    $DownloadedFile = Save-FileOnURL -URL "https://download.mozilla.org/?product=firefox-latest-ssl&os=win64&lang=en-US" -OutputPath $InstallRepoPath -Filename "firefox.exe"
     # STart installation as silent (-ms)
-    Start-Process -FilePath $(Join-Path -Path $InstallRepoPath -ChildPath "firefox.exe") -ArgumentList "-ms" -Wait -NoNewWindow
+    Start-Process -FilePath $DownloadedFile -ArgumentList "-ms" -Wait -NoNewWindow
 
 
     $profilepath = $(Join-Path -Path $privdir -ChildPath "ff_profile")
@@ -559,6 +559,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     $SysinternalsAppDir = join-path -path $ToolsPath -ChildPath "sysinternals"
     $OutputFile = Save-FileOnURL -URL "https://download.sysinternals.com/files/SysinternalsSuite.zip" -OutputPath $InstallRepoPath
     remove-Item -Path $SysinternalsAppDir -Force
+    mkdir $SysinternalsAppDir
     Expand-Archive -Path $OutputFile -DestinationPath $SysinternalsAppDir -Force
 
     & reg import .\customizations\sysinternals.reg
@@ -566,6 +567,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals ProcessExplorer"
+    Add-CompatibilitySettings -ProgramPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe")  -CompatModes "RUNASADMIN" 
 
     if($ReplaceTaskManager) {
 
@@ -720,29 +722,6 @@ cd shellsettings
     }
 
 
-    ###################################
-    #
-    # git for windows
-    #
-    $reldata = Get-GitHubProjectLatestRelease -Project "git-for-windows/git"  -FileNameMatch 'Git*64-bit.exe'
-    if($reldata.browser_download_url) {
-        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
-        #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
-        #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
-        #Unblock-File -Path $downloadPath
-
-        $GitSettngsDir = $PSScriptRoot
-        if(-not $GitSettngsDir) {
-            $GitSettngsDir = (Get-Location).Path
-        }
-        $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
-
-
-        Start-Process -FilePath $OutputFile `
-        -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
-        -NoNewWindow -Wait
-    }
-
 
 
     #############################################
@@ -846,7 +825,9 @@ if($GitPromptSettings) {
     Remove-Item -Path HKCU:\SOFTWARE\Policies\Google -Force -Recurse
     Set-ItemProperty -path HKLM:\SOFTWARE\Policies\Google\Chrome -name 'IncognitoModeAvailability' -Value 0
 
-
+    # show "Run as user"
+    # https://superuser.com/questions/1045158/how-do-you-run-as-a-different-user-from-the-start-menu-in-windows-10
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name ShowRunasDifferentuserinStart -Value 1 -type DWORD
 
     Stop-Process -processname explorer
 
@@ -1021,13 +1002,13 @@ data-product : vagrant
 
         $LOcalNPPFileName=($NppURL -split "/")[-1]
         #Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename "notepad++.zip"
-        Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename $LOcalNPPFileName
+        $DownloadedFile = Save-FileOnURL -URL $NppURL -OutputPath $DownloadPath -Filename $LOcalNPPFileName
 
         $NppInstallDir = Join-Path -Path $ToolsPath -ChildPath "Notepad++"
         $NppPluginDir = Join-Path -Path $NppInstallDir -ChildPath "plugins"
 
         # http://nsis.sourceforge.net/Which_command_line_parameters_can_be_used_to_configure_installers
-        Start-Process -FilePath $(Join-Path -path $DownloadPath -ChildPath $LOcalNPPFileName) -ArgumentList "/S /D=$NppInstallDir" -Wait -NoNewWindow
+        Start-Process -FilePath $DownloadedFile -ArgumentList "/S /D=$NppInstallDir" -Wait -NoNewWindow
 
         # remove update dir to "disable" automatic updates
         rmdir -Path $(Join-Path -Path $NppInstallDir -ChildPath "updater") -Recurse -Verbose
@@ -1452,6 +1433,19 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
 
     if(-not $(Test-Path -Path $ConEmuInstallPath) ) {
 
+        $reldata = Get-GitHubProjectLatestRelease -Project "Maximus5/ConEmu"  -FileNameMatch 'ConEmuSetup*.exe'
+        if($reldata.browser_download_url) {
+            $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
+
+            # Install
+            & $OutputFile
+
+        } else {
+            Write-Warning "Could not get URL for ConEmu"
+        }
+
+
+
         # Directory must be writable to be able to edit settings
         $ConEmuInstallParams = @{
             ver="stable";
@@ -1515,6 +1509,8 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
 
     Expand-Archive -Path $DownloadedFile -DestinationPath $(Join-Path -Path $ToolsPath -ChildPath "VSCode") -Force
 
+    New-ProgramShortcut -TargetPath $(Join-Path -Path $ToolsPath -ChildPath "VSCode\code.exe") -IconFileName "Visual Studio Code"
+
     #https://stackoverflow.com/questions/34286515/how-to-install-visual-studio-code-extensions-from-command-line
     #donjayamanne.python
     #ms-vscode.powershell
@@ -1538,7 +1534,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     $subkey = $hive.OpenSubKey('*\shell\VSCode', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")", 'String')
 
-
+    
 
 
     ################################################
@@ -1710,13 +1706,6 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
     # update powershell help
     update-help
 
-    # show "Run as user"
-    # https://superuser.com/questions/1045158/how-do-you-run-as-a-different-user-from-the-start-menu-in-windows-10
-    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer" -Name ShowRunasDifferentuserinStart -Value 1 -type DWORD
-
-    Stop-Process -processname explorer
-
-
     # create .aws directory
     New-DirectoryIfNotExists -dirname  $(Join-Path -Path $HomePath -ChildPath ".aws")
 
@@ -1739,7 +1728,7 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
 
     $InstallPath = Join-Path -Path $ToolsPath -ChildPath "cygwin\current"
     $PkgPath = Join-Path -Path $ToolsPath -ChildPath "cygwin\pkg"
-    
+
     $CygwinPackages=@(
         "rxvt","wget","openssl","mc","nc","ncftp","vim",
         "curl","links","lynx","arj","unzip","ascii","attr",
@@ -1964,9 +1953,10 @@ source /usr/bin/virtualenvwrapper.sh
     $CustomizationPath = Join-Path -Path $CustomizationPath -ChildPath "customizations"
 
     $DesktopLocation = Get-ItemPropertyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name "Desktop"
-
     Copy -Path $(Join-Path -Path $CustomizationPath -ChildPath "Certificates.msc") -Destination $DesktopLocation -Verbose
 
+    $StartMenuLocation = Get-ItemPropertyValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -Name "Start Menu"
+    Copy -Path $(Join-Path -Path $CustomizationPath -ChildPath "Certificates.msc") -Destination $StartMenuLocation -Verbose
 
 
 
@@ -2016,9 +2006,10 @@ source /usr/bin/virtualenvwrapper.sh
 
     #############################################
     #
-    # Virtual box
+    # VirtualBox
     #
-    $LatestVersionURL = "https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT"
+    #$LatestVersionURL = "https://download.virtualbox.org/virtualbox/LATEST-STABLE.TXT"
+    $LatestVersionURL = "https://download.virtualbox.org/virtualbox/LATEST.TXT"
     $data = Invoke-WebRequest -Uri $LatestVersionURL -UseBasicParsing -DisableKeepAlive
     $Version = $data.Content.Replace("`n","")
     $VersionURL = "https://download.virtualbox.org/virtualbox/$Version/"
@@ -2033,10 +2024,13 @@ outerHTML                                                                       
     $data = Invoke-WebRequest -Uri $VersionURL -UseBasicParsing -DisableKeepAlive
     $link = $data.Links | ? { $_.href -like '*win*.exe' } | Sort-Object -Property href -Descending | select -first 1
 
-    Save-FileOnURL -URL "${VersionURL}$($link.href)" -OutputPath $InstallrepoPath -Filename $link.href
+    $DownloadedFile = Save-FileOnURL -URL "${VersionURL}$($link.href)" -OutputPath $InstallrepoPath -Filename $link.href
+
+    & $DownloadedFile
 
 
-    & "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
+    & "c:\ao\tools\VirtualBox\VBoxManage.exe" setproperty machinefolder $(Join-Path -Path $privdir -ChildPath "VMs\machines")
+    & "c:\ao\tools\VirtualBox\VBoxManage.exe" setextradata global GUI/UpdateDate never
 
 
     #############################################
@@ -2052,28 +2046,8 @@ outerHTML                                                                       
     #
     # Postman
     #
-
     # https://dl.pstmn.io/download/latest/win64
 
-
-    #############################################
-    #
-    # Python 2 for windows
-    #
-    $DownloadURL="https://www.python.org/ftp/python/2.7.15/python-2.7.15.amd64.msi"
-    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
-    $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python27")
-
-    Invoke-MSIFile -InstallFile $LocalFileName -MSIParameters ("TARGETDIR=`"{0}`"" -f $InstallDir)
-
-    & $InstallDir\python.exe  -m pip install --upgrade pip
-
-    $PythonScriptDir=Join-Path -Path $InstallDir -ChildPath "Scripts"
-
-    # global packages
-    "pylint","virtualenvwrapper" | ForEach-Object {
-        & $PythonScriptDir\pip install $_
-    }
 
 
     #############################################
@@ -2137,12 +2111,102 @@ outerHTML                                                                       
     #>
 }
 
+
+Function _Install-GitForWindows {
+    [cmdletBinding()]
+    Param(
+
+    )
+
+    # If -debug is set, change $DebugPreference so that output is a little less annoying.
+    #    http://learn-powershell.net/2014/06/01/prevent-write-debug-from-bugging-you/
+    If ($PSBoundParameters['Debug']) {
+        $DebugPreference = 'Continue'
+    }
+
+    ###################################
+    #
+    # git for windows
+    #
+    $reldata = Get-GitHubProjectLatestRelease -Project "git-for-windows/git"  -FileNameMatch 'Git*64-bit.exe'
+    if($reldata.browser_download_url) {
+        Write-Debug ("Downloading from {0}" -f $reldata.browser_download_url)
+
+        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
+        #$downloadPath = Join-Path -Path $privdir\_down -ChildPath $release.name
+        #Invoke-WebRequest -Uri $release.browser_download_url -UseBasicParsing -OutFile $downloadPath
+        #Unblock-File -Path $downloadPath
+
+        $GitSettngsDir = $PSScriptRoot
+        if(-not $GitSettngsDir) {
+            $GitSettngsDir = (Get-Location).Path
+        }
+        $GitInstallSettings = Join-Path -Path $GitSettngsDir -ChildPath "customizations\git_install.inf"
+
+
+        Start-Process -FilePath $OutputFile `
+        -ArgumentList "/VERYSILENT /LOADINF=$GitInstallSettings" `
+        -NoNewWindow -Wait
+    } else {
+        Write-Warning ("No URL found")
+    }
+}
+
+Function _Install-Python2 {
+    [cmdletBinding()]
+    Param(
+    )
+
+    # If -debug is set, change $DebugPreference so that output is a little less annoying.
+    #    http://learn-powershell.net/2014/06/01/prevent-write-debug-from-bugging-you/
+    If ($PSBoundParameters['Debug']) {
+        $DebugPreference = 'Continue'
+    }
+
+    #############################################
+    #
+    # Python 2 for windows
+    #
+    #$DownloadURL="https://www.python.org/ftp/python/2.7.15/python-2.7.15.amd64.msi"
+    $BasePythonDownloadURL = 'https://www.python.org/ftp/python'
+    $LatestVersionHref = Invoke-WebRequest $BasePythonDownloadURL -UseBasicParsing | select -ExpandProperty Links | ? { $_.href -match '^2\.[0-9].*' } | ForEach-Object {
+        [version]::Parse( $($_.href -replace "/","" ) ) | Add-Member -MemberType NoteProperty -name href -Value $_.href -PassThru
+    } | sort -Property Major,Minor,Build,Revision -Descending | select -first 1 -ExpandProperty href
+
+    $LatestVersionHref = $LatestVersionHref -replace "/",""
+
+    # this is a bit unneccesary...
+    $DownloadHref = Invoke-WebRequest -Uri ("{0}/{1}" -f $BasePythonDownloadURL,$LatestVersionHref) | select -ExpandProperty Links | ? {$_.href -match ('python-{0}.amd64.msi$' -f $LatestVersionHref) } | select -first 1 -ExpandProperty href
+    $DownloadURL = "{0}/{1}/{2}" -f $BasePythonDownloadURL,$LatestVersionHref,$DownloadHref
+    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
+    $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python2")
+
+    Invoke-MSIFile -InstallFile $LocalFileName -MSIParameters ("TARGETDIR=`"{0}`"" -f $InstallDir)
+
+    & $InstallDir\python.exe  -m pip install --upgrade pip
+
+    $PythonScriptDir=Join-Path -Path $InstallDir -ChildPath "Scripts"
+
+    # global packages
+    "pylint","virtualenvwrapper","virtualenvwrapper-win" | ForEach-Object {
+        & $PythonScriptDir\pip install $_
+    }
+}
+
+
+
 _Disable-CertificateVerification
-$privdir = Read-Host -Prompt "Privdir"
-$crepo = Read-Host -Prompt "Corp repo"
 
-#Install-WorkClient -PrivDir $dir -CorpRepo $crepo
+if(-not $env:AO_HOME) {
+    $privdir=Read-Host 'privdir'
+} else {
+    $privdir=$env:AO_HOME
+}
 
+
+<#
+_Install-GitForWindows -verbose -debug
+#>
 
 ###########################
 # tools to look into
