@@ -1749,6 +1749,9 @@ cd ~
 ln -s %CYGPRIVDIR% local
 git clone https://github.com/Winterlabs/shellsettings
 
+# git aliases
+git config --global alias.lg "log --pretty='%Cred%h%Creset |%C(yellow)%d%Creset %s %Cgreen(%cr)%Creset %C(cyan)[%an]%Creset'"
+
 # bash-git-prompt
 #git clone https://github.com/magicmonty/bash-git-prompt.git .bash-git-prompt --depth=1
 
