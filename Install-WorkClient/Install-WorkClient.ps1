@@ -333,13 +333,6 @@ Function Install-WorkClient {
             All = $TRue
         },
     #>
-    $Features = @(
-        @{
-            FeatureName="Microsoft-Windows-Subsystem-Linux"
-            All = $False
-        };
-    )
-
     $Features | ForEach-Object {
         $feature = $_
         $status = Get-WindowsOptionalFeature -Online -FeatureName $feature.FeatureName
@@ -567,7 +560,7 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     & "$($SysinternalsAppDir)\procexp.exe" -accepteula
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe") -IconFileName "Sysinternals ProcessExplorer"
-    Add-CompatibilitySettings -ProgramPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe")  -CompatModes "RUNASADMIN" 
+    Add-CompatibilitySettings -ProgramPath $(Join-Path -Path $SysinternalsAppDir -ChildPath "procexp.exe")  -CompatModes "RUNASADMIN"
 
     if($ReplaceTaskManager) {
 
@@ -602,12 +595,45 @@ Remove-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run -N
     #########################################
     # Linux Subsystem for Windows
     #
+    #
+    $Features = @(
+        @{
+            FeatureName="Microsoft-Windows-Subsystem-Linux"
+            All = $False
+        };
+    )
+
+    $Features | ForEach-Object {
+        $feature = $_
+        $status = Get-WindowsOptionalFeature -Online -FeatureName $feature.FeatureName
+        if(-not $($feature.State -eq "Enabled") ) {
+            $InstallStatus = Enable-WindowsOptionalFeature -Online -FeatureName $feature.FeatureName -All:$($feature.All -eq $TRue) -NoRestart -Verbose
+            if($InstallStatus.RestartNeeded) {
+                $RebootIt = $true
+            }
+        }
+    }
+
     # enable developer mode for lInux subsystem
     New-ItemProperty -Path HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock -Name AllowDevelopmentWithoutDevLicense -PropertyType DWord -Value 1 -Force
 
-    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /install /y`"" -NoNewWindow -Wait
+    # https://damsteen.nl/blog/2018/08/29/installing-wsl-manually-on-non-system-drive
+    $OutputPath = Save-FileOnURL -URL https://aka.ms/wsl-ubuntu-1804 -OutputPath $InstallRepoPath -Filename "Ubuntu1804.zip"
+    $InstallPath = $(Join-Path -Path $ToolsPath -ChildPath "WSL\Ubuntu-1804")
+    mkdir $InstallPath
+
+    Expand-Archive -Path $OutputPath -DestinationPath $InstallPath
+
+    $InstallFile = Join-Path -Path $InstallPath -ChildPath "ubuntu1804.exe"
+    Start-Process -FilePath 'c:\windows\system32\cmd.exe' -ArgumentList @('/c',$InstallFile,'install','--root') -NoNewWindow -Wait `
+            -WorkingDirectory $InstallPath `
+            -RedirectStandardError $(Join-Path -Path $InstallLogPath -ChildPath "WSL_Ubuntu1804_stderr.log") `
+            -RedirectStandardOutput $(join-path -Path $InstallLogPath -ChildPath "WSL_Ubuntu1804_stdout.log")
+
+    # lxrun not valid in 1803
+    #Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /install /y`"" -NoNewWindow -Wait
     # initially set default user as root
-    Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /setdefaultuser root /y`"" -NoNewWindow -Wait
+    #Start-Process -FilePath C:\Windows\System32\cmd.exe -ArgumentList "/c `"lxrun /setdefaultuser root /y`"" -NoNewWindow -Wait
 
 
 
@@ -632,12 +658,16 @@ $WSLInitPrivScript=@'
 # python-dev for pip
 # libffi-dev for ansible
 # libssl-dev for ansible
+apt-get update
 apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev pwgen python-virtualenv jq
+
 #pip install ansible
 #boto is needed by ec2 module
 #pip install boto
 # github3.py needed by github_release module
 #pip install github2 github3.py
+
+pip install --user virtualenvwrapper
 
 #################################
 updatedb
@@ -663,16 +693,77 @@ read foo
 
 $WSLLocalUserInit=@'
 ln -s %LOCALPRIVDIR% localdir
-mkdir -p ~/python/envs/ansible
-cd ~/python/envs
-virtualenv ansible
-source ansible/bin/activate
-cd ansible
-pip install ansible boto github2 github3.py pywinrm
-#
-git clone https://github.com/Winterlabs/shellsettings
-cd shellsettings
-./merge_settings.sh
+
+
+cat <<'EOF' >>~/.bashrc
+settitle() {
+    title=$1
+    [ -z "$title" ] && title="bash"
+    printf "\033k$title\033\\"
+}
+
+gitbranch() {
+    [ -z $1 ] && git branch -vv -a || git branch -vv -a | grep -i $1
+}
+settitle () {
+    title=$1;
+    [ -z "$title" ] && title="bash";
+    printf "\033k$title\033\\"
+}
+
+
+if [ -f "${HOME}/.bash_aliases" ]; then
+  source "${HOME}/.bash_aliases"
+fi
+
+# handle ssh-agent
+if [ ! -e ~/.ssh_agent_env ]; then
+  echo ".ssh_agent_env not found. executing ssh-agent..."
+  ssh-agent 1>~/.ssh_agent_env
+  eval `cat ~/.ssh_agent_env`
+  ssh-add
+else
+  echo ".ssh_agent_env found. reading env file..."
+  eval `cat ~/.ssh_agent_env`
+  ps -p $SSH_AGENT_PID | grep -q "ssh-agent"
+  status=$?
+  if [ $status -gt 0 ]; then
+    echo "ssh-agent pid in .ssh_agent_env looks stale. re-executing..."
+    ssh-agent 1>~/.ssh_agent_env
+    eval `cat ~/.ssh_agent_env`
+    ssh-add
+  else
+    echo "found an ssh-agent with pid $SSH_AGENT_PID"
+  fi
+fi
+
+
+# run stuff when executed from TMUX
+if [[ $TMUX ]]; then
+    cd ~/local/
+fi
+
+export WORKON_HOME=$HOME/.virtualenvs
+export PIP_VIRTUALENV_BASE=$WORKON_HOME
+source /usr/bin/virtualenvwrapper.sh
+EOF
+
+source /usr/bin/virtualenvwrapper.sh
+
+mkvirtualenv awspy2dev
+pip install boto3 requests pylint
+
+
+#mkdir -p ~/python/envs/ansible
+#cd ~/python/envs
+#virtualenv ansible
+#source ansible/bin/activate
+#cd ansible
+#pip install ansible boto github2 github3.py pywinrm
+##
+#git clone https://github.com/Winterlabs/shellsettings
+#cd shellsettings
+#./merge_settings.sh
 '@
 
 
@@ -682,7 +773,7 @@ cd shellsettings
     if(-not $WSLINitPrivSCriptPath) {
         $WSLINitPrivSCriptPath = (get-location).path
     }
-    $WSLINitPrivSCriptPath = Join-Path -Path $(ConvertTo-LowercasePathQualifier -path $WSLINitPrivSCriptPath) -ChildPath "init_bash.sh"
+    $WSLINitPrivSCriptPath = Join-Path -Path $(ConvertTo-LowercasePathQualifier -path $WSLINitPrivSCriptPath) -ChildPath "init_wsl.sh"
     $WSLInitPrivScript.Replace("`r`n","`n") | `
         _Expand-VariablesInString -VariableMappings @{
             SHELLUSERNAME=$env:USERNAME;
@@ -696,7 +787,7 @@ cd shellsettings
     Start-Process -FilePath C:\Windows\System32\bash.exe -ArgumentList "-c `"sh $(ConvertTo-WSLPath -path $WSLINitPrivSCriptPath)`"" -Wait
 
 
-
+    & C:\Windows\System32\bash.exe -c "sh -x $(ConvertTo-WSLPath -path $WSLINitPrivSCriptPath)"
 
 
     ###################################
@@ -867,6 +958,12 @@ if($GitPromptSettings) {
 
 
     #>
+
+    #################################################
+    #
+    # Unpin crap from taskbar
+    #
+    # %LOCALAPPDATA%\Microsoft\Windows\Shell\LayoutModification.xml
 
     #################################################
     #
@@ -1128,7 +1225,7 @@ data-product : vagrant
 
             $InstallPLugin = $_
             $NppPlugin = $NppPluginList.SelectNodes("//plugin[@name=`"$InstallPLugin`"]")
-            $PluginDownloadFileName = ("{0}.zip" -f [guid]::NewGuid()) 
+            $PluginDownloadFileName = ("{0}.zip" -f [guid]::NewGuid())
             $PluginUnzipDir = $(Join-Path -Path $env:TEMP -ChildPath ([guid]::NewGuid()))
 
             Write-Debug ("NppPlugin={0} | DownloadPath={1} | Unzipdir={2}" -f $NppPlugin,$PluginDownloadFileName,$PluginUnzipDir) -Debug:$TRue
@@ -1507,7 +1604,14 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     $OutputPath = $InstallRepoPath
     $DownloadedFile = Save-FileOnURL -URL "https://go.microsoft.com/fwlink/?Linkid=850641"  -OutputPath $OutputPath -Filename "vSCode_latest.zip"
 
-    Expand-Archive -Path $DownloadedFile -DestinationPath $(Join-Path -Path $ToolsPath -ChildPath "VSCode") -Force
+    $TargetPath = $(Join-Path -Path $ToolsPath -ChildPath "VSCode")
+    if($(Test-Path -Path $TargetPath)) {
+        Write-Warning ('"{0}" already exist' -f $TargetPath)
+        $BackupPath = $(Join-Path -Path $ToolsPath -ChildPath "VSCode_old")
+        if($(Test-path -Path $BackupPath)) { Remove-Item -Path $BackupPath -Recurse }
+        Move-Item -Path $TargetPath -Destination $BackupPath
+    }
+    Expand-Archive -Path $DownloadedFile -DestinationPath $TargetPath -Force
 
     New-ProgramShortcut -TargetPath $(Join-Path -Path $ToolsPath -ChildPath "VSCode\code.exe") -IconFileName "Visual Studio Code"
 
@@ -1534,7 +1638,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     $subkey = $hive.OpenSubKey('*\shell\VSCode', $true)
     $subkey.SetValue('Icon', "$(Join-Path -Path $privdir -ChildPath "tools\VSCode\code.exe")", 'String')
 
-    
+
 
 
     ################################################
@@ -1739,7 +1843,8 @@ iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/in
         "whois","binutils","util-linux","rsync","httping",
         "dos2unix","sharutils","xxd","git","bash-completion",
         "python","python-setuptools","tmux","pv","gnupg","zip",
-        "procps-ng","xmlsec1","jq","python3"
+        "procps-ng","xmlsec1","jq","python3","python2-ipython",
+        "python-ipython","python3-ipython"
     )
     & $DownloadedFile --quiet-mode --download --site http://cygwin.uib.no --local-package-dir $PkgPath --packages $($CygwinPackages -join ",")
     & $DownloadedFile --quiet-mode --local-install --local-package-dir $PkgPath --root  $InstallPath --packages  $($CygwinPackages -join ",")
@@ -2059,8 +2164,8 @@ outerHTML                                                                       
     #
     # https://docs.python.org/3/using/windows.html
     #
-    $DownloadURL="https://www.python.org/ftp/python/3.7.1/python-3.7.1-amd64.exe"
-    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
+    $DownloadURL="https://www.python.org/ftp/python/3.7.3/python-3.7.3-amd64.exe"
+    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
     $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python3")
 
     Start-Process -FilePath $LocalFileName  -Wait -NoNewWindow `
@@ -2070,7 +2175,9 @@ outerHTML                                                                       
                        ,"/passive"
                        )
 
-
+    <#
+    pip install boto3 requests pylint
+    #>
 
     #############################################
     #
@@ -2181,7 +2288,7 @@ Function _Install-Python2 {
     # this is a bit unneccesary...
     $DownloadHref = Invoke-WebRequest -Uri ("{0}/{1}" -f $BasePythonDownloadURL,$LatestVersionHref) | select -ExpandProperty Links | ? {$_.href -match ('python-{0}.amd64.msi$' -f $LatestVersionHref) } | select -first 1 -ExpandProperty href
     $DownloadURL = "{0}/{1}/{2}" -f $BasePythonDownloadURL,$LatestVersionHref,$DownloadHref
-    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath 
+    $LocalFileName=Save-FileOnURL -URL $DownloadURL -OutputPath $InstallRepoPath
     $InstallDir=$(Join-Path -Path $ToolsPath -ChildPath "Python2")
 
     Invoke-MSIFile -InstallFile $LocalFileName -MSIParameters ("TARGETDIR=`"{0}`"" -f $InstallDir)
