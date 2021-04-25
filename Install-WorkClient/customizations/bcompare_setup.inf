@@ -1,6 +1,6 @@
 [Setup]
 Lang=en
-Dir=C:\Program Files (x86)\Beyond Compare 3
+Dir=c:\ao\tools\BC4
 Group=Beyond Compare 3
 NoIcons=1
 Tasks=shellextension

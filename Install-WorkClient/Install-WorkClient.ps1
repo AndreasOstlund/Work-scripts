@@ -659,6 +659,7 @@ $WSLInitPrivScript=@'
 # libffi-dev for ansible
 # libssl-dev for ansible
 apt-get update
+apt-get upgrade
 apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libssl-dev pwgen python-virtualenv jq
 
 #pip install ansible
@@ -667,7 +668,7 @@ apt-get --assume-yes install vim git tmux python-pip python-dev libffi-dev libss
 # github3.py needed by github_release module
 #pip install github2 github3.py
 
-pip install --user virtualenvwrapper
+pip install --user virtualenvwrapper pipenv aws
 
 #################################
 updatedb
@@ -686,6 +687,9 @@ echo "%SHELLUSERNAME%:$USERPWD" | chpasswd
 # set localhost
 echo "127.0.0.1 %COMPUTERNAME%" >> /etc/hosts
 echo "127.0.0.1 %HOSTFQDN%" >> /etc/hosts
+
+echo 'EXTRA_OPTS="-L 15"' >> /etc/default/cron
+
 
 echo "done"
 read foo
@@ -746,6 +750,15 @@ fi
 export WORKON_HOME=$HOME/.virtualenvs
 export PIP_VIRTUALENV_BASE=$WORKON_HOME
 source /usr/bin/virtualenvwrapper.sh
+
+export PATH=$PATH:~/.local/bin
+export USERNAME=$USER # for old cygwin scripts
+
+
+export HISTSIZE=5000
+export HISTFILESIZE=$HISTSIZE
+export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S %s "
+shopt -s histappend
 EOF
 
 source /usr/bin/virtualenvwrapper.sh
@@ -869,7 +882,11 @@ if(`$(`$host.name) -eq 'Windows PowerShell ISE Host') {
     }
 
     @'
+if(-Not `$ENV:WT_SESSION) {
 . (Join-Path -Path (Split-Path -Parent -Path $PROFILE) -ChildPath $(switch($HOST.UI.RawUI.BackgroundColor.ToString()){'White'{'Set-SolarizedLightColorDefaults.ps1'}'Black'{'Set-SolarizedDarkColorDefaults.ps1'}default{return}}))
+} else {
+   set-theme aostlund
+}
 '@ | Add-Content -Path "$($env:HOME)\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1"
 
 
@@ -907,7 +924,7 @@ if($GitPromptSettings) {
         Set-ItemProperty -Path $ExplorerRegPath -Name $_.REgKey -Value $_.Value
     }
 
-    # set desktop
+    # set desktop color and wallpaper
     Set-ItemProperty -Path 'HKCU:\Control Panel\Colors' -Name "Background" -Value "0 0 0"
     Set-ItemProperty -Path 'HKCU:\Control Panel\Desktop' -Name "Wallpaper" -Value ""
 
@@ -1008,6 +1025,7 @@ if($GitPromptSettings) {
     }
     $BCompSettings = Join-Path -Path $BCompSEttingsDir -ChildPath "customizations\bcompare_setup.inf"
     # Start setup
+    # C:\Program Files (x86)\Beyond Compare 3
     & $OutputFile /silent /loadinf="$BCompSettings"
 
 
@@ -1607,9 +1625,11 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     $TargetPath = $(Join-Path -Path $ToolsPath -ChildPath "VSCode")
     if($(Test-Path -Path $TargetPath)) {
         Write-Warning ('"{0}" already exist' -f $TargetPath)
-        $BackupPath = $(Join-Path -Path $ToolsPath -ChildPath "VSCode_old")
+        $TS = get-date -UFormat "%Y%M%d%H%M%S"
+        $BackupPath = $(Join-Path -Path $ToolsPath -ChildPath ("VSCode_old_{0}" -f $TS))
         if($(Test-path -Path $BackupPath)) { Remove-Item -Path $BackupPath -Recurse }
         Move-Item -Path $TargetPath -Destination $BackupPath
+        Write-Warning ('"{0}" Moved to {1}' -f $TargetPath, $BackupPath)
     }
     Expand-Archive -Path $DownloadedFile -DestinationPath $TargetPath -Force
 
@@ -1646,6 +1666,7 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     # Visual studio community ed
     #
     #https://download.visualstudio.microsoft.com/download/pr/d125163a-cf26-489a-b62e-94995a66d7c5/1ff3b2c80236499af4ef5bd802277f64/vs_community.exe
+    #https://download.visualstudio.microsoft.com/download/pr/067fd8d0-753e-4161-8780-dfa3e577839e/771a4c18e31ccc341097af13302792331817ae81fce20f8c99799163d87733d4/vs_Community.exe
 
 
 
@@ -1961,6 +1982,9 @@ else
   fi
 fi
 
+for service in rsyslog cron; do
+    pgrep $service 1>/dev/null 2>&1 || service $service start
+done
 
 # run stuff when executed from TMUX
 if [[ $TMUX ]]; then
@@ -2178,6 +2202,60 @@ outerHTML                                                                       
     <#
     pip install boto3 requests pylint
     #>
+
+
+    #############################################
+    #
+    # Windows 10 1909 things. Terminal, winget
+    #
+
+    # requires c++ redist 14
+    # https://www.microsoft.com/en-us/download/confirmation.aspx?id=53175
+    $DownloadURL = "https://download.microsoft.com/download/B/E/1/BE1F235A-836D-42AC-9BC1-8F04C9DA7E9D/vc_uwpdesktop.140.exe"
+    $OutputFile = Save-FileOnURL -URL $DownloadURL -OutputPath $InstallrepoPath
+    Start-Process -FilePath $OutputFile `
+        -ArgumentList "/install /log $(Join-Path -Path $privdir -ChildPath "install_logs\vc_uwpdesktop.140.log")`""  `
+         -NoNewWindow -Wait
+
+
+    # winget
+    $reldata = Get-GitHubProjectLatestRelease -Project "microsoft/winget-cli"  -FileNameMatch 'Microsoft.DesktopAppInstaller*.appxbundle'
+    if($reldata.browser_download_url) {
+        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
+
+        # Install
+        & $OutputFile
+    }
+
+
+
+    # microsoft terminal
+    & winget install --id=Microsoft.WindowsTerminal -e
+
+
+    # powershell prompt & Themes
+    # https://docs.microsoft.com/en-us/windows/terminal/tutorials/powerline-setup
+
+    # cascadia code font
+    $reldata = Get-GitHubProjectLatestRelease -Project "microsoft/cascadia-code"  -FileNameMatch 'CascadiaCode_*.zip'
+    if($reldata.browser_download_url) {
+        $OutputFile = Save-FileOnURL -URL $reldata.browser_download_url -OutputPath $InstallRepoPath
+        $UnzipPath = Join-Path -Path $env:TEMP -ChildPath $([GUID]::NewGuid())
+        mkdir $UnzipPath -ErrorAction Continue
+        Expand-Archive -Path $OutputFile -DestinationPath $UnzipPath
+
+        ii $(Join-Path -Path $UnzipPath -ChildPath "ttf\CascadiaCodePL.ttf")
+    }
+
+
+    # Oh My PoSH - Themes
+    Install-Module oh-my-posh -Scope CurrentUser
+
+
+    # "fontFace": "Cascadia Code PL"
+    # mkdir $ThemeSettings.MyThemesLocation
+    # copy C:\Users\aostlund\OneDrive - Infor\Documents\WindowsPowerShell\Modules\oh-my-posh\2.0.440\Themes\Paradox.psm1  $ThemeSettings.MyThemesLocation\aostlund.psm1
+
 
     #############################################
     #
