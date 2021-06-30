@@ -1596,7 +1596,84 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
     #
     # java
     #
-    Start-Process -FilePath"$crepo\Program\java\Windows\jre-8u144-windows-x64.exe" -ArgumentList "AUTO_UPDATE=Disable INSTALL_SILENT=Enable" -NoNewWindow -Wait
+    Start-Process -FilePath "$crepo\Program\java\Windows\jre-8u144-windows-x64.exe" -ArgumentList "AUTO_UPDATE=Disable INSTALL_SILENT=Enable" -NoNewWindow -Wait
+
+    #
+    # Corretto 8
+    #
+    $Corretto8URL = "https://corretto.aws/downloads/latest/amazon-corretto-8-x64-windows-jdk.zip"
+    $Corretto8URL = "https://corretto.aws/downloads/resources/8.282.08.1/amazon-corretto-8.282.08.1-windows-x64-jdk.zip"
+    $CorrettoSavePath = Save-FileOnURL -URL $Corretto8URL -OutputPath $InstallrepoPath
+
+    $CorrettoTempPath = Join-Path -Path $env:TEMP -ChildPath ([guid]::NewGuid())
+    mkdir -Path $CorrettoTempPath -ErrorAction Continue
+
+    Expand-Archive -Path $CorrettoSavePath -DestinationPath $CorrettoTempPath 
+    $CorrettoVersionDir = dir $CorrettoTempPath -Filter 'jdk*'
+
+    $JDKDir = Split-Path -Path $CorrettoVersionDir -Leaf
+    $JDKInstallPath = "$ToolsPath\Corretto8"
+
+    if(-not $(Test-Path $JDKInstallPath)) {
+        mkdir $JDKInstallPath -ErrorAction SilentlyContinue
+        move-item -Path ($CorrettoVersionDir.FullName) -Destination $JDKInstallPath  # moves the whole dir
+
+        # Fix ACLs on extracted files/dirs. They are not inheriting permissions from parent dir.
+
+        New-Item -Path c:\JDK8 -ItemType Junction -Value "$JDKInstallPath\$JDKDir" -Force
+
+        $MachinePathEnv = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
+        [Environment]::SetEnvironmentVariable("Path", "$JDKInstallPath\$JDKDir" + ";" + $MachinePathEnv,
+            [EnvironmentVariableTarget]::Machine)
+
+        [Environment]::SetEnvironmentVariable("JAVA_HOME", "$JDKInstallPath\$JDKDir",
+            [EnvironmentVariableTarget]::Machine)
+    } else {
+        Write-Warning "$JDKInstallPath already exists!"
+    }
+
+
+    #
+    # Corretto 11
+    #
+    $Corretto11URL = "https://corretto.aws/downloads/latest/amazon-corretto-11-x64-windows-jdk.zip"
+    $CorrettoSavePath = Save-FileOnURL -URL $Corretto11URL -OutputPath $InstallrepoPath
+
+    $CorrettoTempPath = Join-Path -Path $env:TEMP -ChildPath ([guid]::NewGuid())
+    mkdir -Path $CorrettoTempPath -ErrorAction Continue
+
+    Expand-Archive -Path $CorrettoSavePath -DestinationPath $CorrettoTempPath 
+    $CorrettoVersionDir = dir $CorrettoTempPath -Filter 'jdk*'
+
+    $JDKDir = Split-Path -Path $CorrettoVersionDir -Leaf
+    $JDKInstallPath = "$ToolsPath\Corretto11"
+    if(-not $(Test-Path $JDKInstallPath)) {
+        mkdir $JDKInstallPath -ErrorAction SilentlyContinue
+        move-item -Path ($CorrettoVersionDir.FullName) -Destination $JDKInstallPath  # moves the whole dir
+        New-Item -Path c:\JDK11 -ItemType Junction -Value "$JDKInstallPath\$JDKDir" -Force
+
+
+    } else {
+        Write-Warning "$JDKInstallPath already exists!"
+    }
+
+
+    ###################################################
+    #
+    # Maven
+    #
+    $MavenURL = "https://ftp.acc.umu.se/mirror/apache.org/maven/maven-3/3.8.1/binaries/apache-maven-3.8.1-bin.zip"
+    $OutputFile = Save-FileOnURL -URL $MavenURL -OutputPath $ToolsPath 
+    $TargetPath = "$ToolsPath\Maven"
+
+    mkdir $TargetPath -ErrorAction SilentlyContinue
+    Expand-Archive -Path $Outputfile -DestinationPath $TargetPath
+
+    $InstalledMavenPath = dir $TargetPath | Sort-Object -Property CreationTime -Descending | select -first 1
+
+    $MachinePathEnv = [Environment]::GetEnvironmentVariable("Path", [EnvironmentVariableTarget]::Machine)
+    $NewPath = ("{0};{1}\bin" -f $MachinePathEnv, $($InstalledMavenPath.FullName))
+    [Environment]::SetEnvironmentVariable("Path", $NewPath, [EnvironmentVariableTarget]::Machine)
 
 
     ###################################################
@@ -1699,7 +1776,6 @@ Copy-Item -Path $(Join-Path -Path $UnzipPath -ChildPath "xmltools.dll") -Destina
 
     # set config dir
     [environment]::SetEnvironmentVariable("ATOM_HOME",$SettingsDir,[System.EnvironmentVariableTarget]::User)
-
 
     # Add icon to start menu
     New-ProgramShortcut -TargetPath $(join-path -Path $DestinationPath -ChildPath "atom.exe") `
